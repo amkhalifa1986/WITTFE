@@ -780,6 +780,11 @@ export const TripDetails = () => {
                 {isRTL ? trip.trainNameAr : trip.trainNameEn}
               </h1>
               <span className={`badge ${getStatusBadgeClass(trip.status)}`}>{t(trip.status)}</span>
+              {(isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn) && (
+                <span className="badge badge-info" style={{ textTransform: 'none' }}>
+                  {isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn}
+                </span>
+              )}
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span>{t('trackDate')}: {trip.tripDate}</span>

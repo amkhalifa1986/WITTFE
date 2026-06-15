@@ -266,6 +266,11 @@ export const TrainDetails = () => {
               ) : (
                 <span className="badge badge-info">{t('scheduled')}</span>
               )}
+              {(isRTL ? train.trainTypeNameAr : train.trainTypeNameEn) && (
+                <span className="badge badge-info" style={{ textTransform: 'none' }}>
+                  {isRTL ? train.trainTypeNameAr : train.trainTypeNameEn}
+                </span>
+              )}
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
               {isRTL ? train.descriptionAr : train.descriptionEn}

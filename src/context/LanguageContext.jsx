@@ -101,6 +101,10 @@ const translations = {
     notYet: 'Not yet',
     
     // Status & Crowd Labels
+    Scheduled: 'Scheduled',
+    Departed: 'Departed',
+    InTransit: 'In Transit',
+    Arrived: 'Arrived',
     OnTime: 'On Time',
     Delayed: 'Delayed',
     Crowded: 'Crowded',
@@ -480,6 +484,10 @@ const translations = {
     notYet: 'ليس بعد',
     
     // Status & Crowd Labels
+    Scheduled: 'مجدول',
+    Departed: 'مغادر',
+    InTransit: 'في الطريق',
+    Arrived: 'وصل',
     OnTime: 'في الموعد',
     Delayed: 'متأخر',
     Crowded: 'مزدحم جداً',
