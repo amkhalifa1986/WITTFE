@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/authContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePopup } from '../context/PopupContext';
 import api from '../services/api';
 import { AdInterstitial } from '../components/AdInterstitial';
 import { User, Mail, FileText, Camera, History, Train, Clock, X, Trash2, Upload, Loader } from 'lucide-react';
@@ -8,6 +9,7 @@ import { User, Mail, FileText, Camera, History, Train, Clock, X, Trash2, Upload,
 export const Profile = () => {
   const { user, updateUserProfile } = useAuth();
   const { t, isRTL } = useLanguage();
+  const { toast, alert, confirm } = usePopup();
   
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -17,8 +19,6 @@ export const Profile = () => {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
@@ -58,32 +58,34 @@ export const Profile = () => {
   }, []);
 
   const handleUnfollowUpcomingTrip = async (tripId) => {
-    if (!window.confirm(t('unfollowTripConfirm'))) return;
+    const isConfirmed = await confirm(t('unfollowTripConfirm'));
+    if (!isConfirmed) return;
 
     try {
       const res = await api.unfollowTrip(tripId);
       if (res.isSuccess) {
-        alert(t('unfollowedTripSuccess'));
+        toast(t('unfollowedTripSuccess'), 'success');
         fetchFollowPlansData();
       }
     } catch (err) {
       console.error(err);
-      alert(err.message || t('failedToUnfollowTrip'));
+      toast(err.message || t('failedToUnfollowTrip'), 'error');
     }
   };
 
   const handleCancelFollowPlan = async (trainId) => {
-    if (!window.confirm(t('unfollowPlanConfirm'))) return;
+    const isConfirmed = await confirm(t('unfollowPlanConfirm'));
+    if (!isConfirmed) return;
 
     try {
       const res = await api.deleteFollowPlan(trainId);
       if (res.isSuccess) {
-        alert(t('planDeleted'));
+        toast(t('planDeleted'), 'success');
         fetchFollowPlansData();
       }
     } catch (err) {
       console.error(err);
-      alert(err.message || t('failedToCancelFollowPlan'));
+      toast(err.message || t('failedToCancelFollowPlan'), 'error');
     }
   };
 
@@ -121,14 +123,12 @@ export const Profile = () => {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    setError('');
-    setSuccess('');
     
     try {
       await updateUserProfile(displayName.trim(), bio.trim() || null, avatarUrl ? avatarUrl.trim() : null);
-      setSuccess(t('Profile updated successfully!'));
+      toast(t('Profile updated successfully!'), 'success');
     } catch (err) {
-      setError(err.message || t('failedToUpdateProfile'));
+      toast(err.message || t('failedToUpdateProfile'), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -139,19 +139,17 @@ export const Profile = () => {
     if (!file) return;
 
     setUploadingFile(true);
-    setError('');
-    setSuccess('');
 
     try {
       const res = await api.uploadAvatar(file);
       if (res.data) {
         setAvatarUrl(res.data);
         await updateUserProfile(displayName.trim(), bio.trim() || null, res.data);
-        setSuccess(t('Profile updated successfully!'));
+        toast(t('Profile updated successfully!'), 'success');
         setShowPhotoModal(false);
       }
     } catch (err) {
-      setError(err.message || t('Failed to upload photo.'));
+      toast(err.message || t('Failed to upload photo.'), 'error');
     } finally {
       setUploadingFile(false);
     }
@@ -159,16 +157,14 @@ export const Profile = () => {
 
   const handleRemovePhoto = async () => {
     setUploadingFile(true);
-    setError('');
-    setSuccess('');
 
     try {
       setAvatarUrl('');
       await updateUserProfile(displayName.trim(), bio.trim() || null, null);
-      setSuccess(t('Profile updated successfully!'));
+      toast(t('Profile updated successfully!'), 'success');
       setShowPhotoModal(false);
     } catch (err) {
-      setError(err.message || t('Failed to remove photo.'));
+      toast(err.message || t('Failed to remove photo.'), 'error');
     } finally {
       setUploadingFile(false);
     }
@@ -188,9 +184,6 @@ export const Profile = () => {
           <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <User size={22} color="var(--accent-primary)" /> {t('accountInfo')}
           </h3>
-
-          {error && <div style={{ color: 'var(--danger)', marginBottom: '16px', fontWeight: 500 }}>{error}</div>}
-          {success && <div style={{ color: 'var(--success)', marginBottom: '16px', fontWeight: 500 }}>{success}</div>}
 
           <form onSubmit={handleUpdateProfile}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>

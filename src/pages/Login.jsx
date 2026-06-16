@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePopup } from '../context/PopupContext';
 import { MapPin, Lock, Mail, Loader } from 'lucide-react';
 
 export const Login = () => {
   const { login } = useAuth();
   const { t } = useLanguage();
+  const { toast } = usePopup();
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('');
@@ -29,7 +31,7 @@ export const Login = () => {
       navigate('/');
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Invalid email or password.');
+      toast(err.message || 'Invalid email or password.', 'error');
     } finally {
       setLoading(false);
     }

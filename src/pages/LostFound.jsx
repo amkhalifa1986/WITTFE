@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/authContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePopup } from '../context/PopupContext';
 import { 
   PlusCircle, 
   MessageSquare, 
@@ -20,6 +21,7 @@ import { AdInterstitial } from '../components/AdInterstitial';
 export const LostFound = () => {
   const { user } = useAuth();
   const { t, isRTL } = useLanguage();
+  const { toast, alert, confirm } = usePopup();
   
   const [activeTab, setActiveTab] = useState(0); // 0 = Lost, 1 = Found
   const [posts, setPosts] = useState([]);
@@ -68,7 +70,7 @@ export const LostFound = () => {
       setSelectedPost(res.data);
       setPostComments(res.data.comments || []);
     } catch (err) {
-      alert('Failed to retrieve post details: ' + err.message);
+      toast('Failed to retrieve post details: ' + err.message, 'error');
     }
   };
 
@@ -94,9 +96,10 @@ export const LostFound = () => {
       setContactInfo('');
       setShowCreateModal(false);
       
+      toast(t('Report submitted successfully!'), 'success');
       fetchPosts();
     } catch (err) {
-      alert('Failed to submit post: ' + err.message);
+      toast('Failed to submit post: ' + err.message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -114,31 +117,36 @@ export const LostFound = () => {
       setSelectedPost(res.data);
       setPostComments(res.data.comments || []);
       setNewComment('');
+      toast(t('Comment added successfully!'), 'success');
     } catch (err) {
-      alert('Failed to add comment: ' + err.message);
+      toast('Failed to add comment: ' + err.message, 'error');
     } finally {
       setSubmittingComment(false);
     }
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+    const isConfirmed = await confirm('Are you sure you want to delete this comment?');
+    if (!isConfirmed) return;
     try {
       await api.deleteLostFoundComment(commentId);
       setPostComments(prev => prev.filter(c => c.id !== commentId));
+      toast('Comment deleted successfully!', 'success');
     } catch (err) {
-      alert('Failed to delete comment: ' + err.message);
+      toast('Failed to delete comment: ' + err.message, 'error');
     }
   };
 
   const handleMarkResolved = async (postId) => {
-    if (!window.confirm('Mark this report as resolved? It will close comments.')) return;
+    const isConfirmed = await confirm('Mark this report as resolved? It will close comments.');
+    if (!isConfirmed) return;
     try {
       await api.markLostFoundResolved(postId);
       setSelectedPost(prev => prev ? { ...prev, status: 'Closed' } : null);
+      toast('Report marked as resolved.', 'success');
       fetchPosts();
     } catch (err) {
-      alert('Failed to resolve report: ' + err.message);
+      toast('Failed to resolve report: ' + err.message, 'error');
     }
   };
 

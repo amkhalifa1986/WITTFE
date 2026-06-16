@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
+import { usePopup } from '../context/PopupContext';
 import { 
   Users, 
   Lightbulb, 
@@ -14,24 +15,30 @@ import {
   X,
   FileSpreadsheet,
   Settings,
-  LayoutDashboard
+  LayoutDashboard,
+  Train,
+  Calendar
 } from 'lucide-react';
 import { DashboardMapAndFeed } from './DashboardMapAndFeed';
 
 export const Admin = () => {
   const { t, isRTL } = useLanguage();
+  const { toast, alert, confirm } = usePopup();
   
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'users', 'suggestions', 'disruptions', 'import', 'settings'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   // Tab States
   const [statsData, setStatsData] = useState(null);
 
   // Tab States
   const [usersList, setUsersList] = useState([]);
-  const [suggestionsList, setSuggestionsList] = useState([]);
+  const [trainSuggestionsList, setTrainSuggestionsList] = useState([]);
+  const [stopSuggestionsList, setStopSuggestionsList] = useState([]);
+  const [suggestionsSubTab, setSuggestionsSubTab] = useState('trains'); // 'trains' or 'stops'
+  const [cities, setCities] = useState([]);
+  const [governorates, setGovernorates] = useState([]);
   const [disruptionsList, setDisruptionsList] = useState([]);
   const [pendingUpdates, setPendingUpdates] = useState([]);
   const [removalRequests, setRemovalRequests] = useState([]);
@@ -45,8 +52,8 @@ export const Admin = () => {
   const [submittingDisruption, setSubmittingDisruption] = useState(false);
 
   // Suggestion Review Modal State
-  const [reviewingSug, setReviewingSug] = useState(null);
-  const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewingTrain, setReviewingTrain] = useState(null);
+  const [reviewingStop, setReviewingStop] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // System Settings State
@@ -68,7 +75,6 @@ export const Admin = () => {
   const fetchData = async () => {
     setLoading(true);
     setError('');
-    setSuccess('');
     try {
       if (activeTab === 'dashboard') {
         const res = await api.getDashboardStats();
@@ -77,8 +83,16 @@ export const Admin = () => {
         const res = await api.adminGetUsers();
         setUsersList(res.data || []);
       } else if (activeTab === 'suggestions') {
-        const res = await api.adminGetPendingSuggestions();
-        setSuggestionsList(res.data || []);
+        const [trainRes, stopRes, citiesRes, govsRes] = await Promise.all([
+          api.adminGetPendingTrainSuggestions(),
+          api.adminGetPendingStopSuggestions(),
+          api.getCities(),
+          api.getGovernorates()
+        ]);
+        setTrainSuggestionsList(trainRes.data || []);
+        setStopSuggestionsList(stopRes.data || []);
+        setCities(citiesRes.data || []);
+        setGovernorates(govsRes.data || []);
       } else if (activeTab === 'disruptions') {
         const res = await api.getDisruptions();
         setDisruptionsList(res.data || []);
@@ -110,23 +124,24 @@ export const Admin = () => {
     try {
       await api.adminToggleUserSuspension(userId, !isCurrentlySuspended);
       setUsersList(prev => prev.map(u => u.id === userId ? { ...u, isSuspended: !isCurrentlySuspended } : u));
-      setSuccess(`User successfully ${!isCurrentlySuspended ? 'suspended' : 'unsuspended'}.`);
+      toast(`User successfully ${!isCurrentlySuspended ? 'suspended' : 'unsuspended'}.`, 'success');
     } catch (err) {
-      alert('Error updating user suspension: ' + err.message);
+      toast('Error updating user suspension: ' + err.message, 'error');
     }
   };
 
   const handleChangeRole = async (userId, currentRole) => {
     const nextRole = currentRole === 'Admin' || currentRole === 1 ? 0 : 1;
     const nextRoleName = nextRole === 1 ? 'Admin' : 'User';
-    if (!window.confirm(`Change this user's role to ${nextRoleName}?`)) return;
+    const isConfirmed = await confirm(`Change this user's role to ${nextRoleName}?`);
+    if (!isConfirmed) return;
 
     try {
       await api.adminChangeUserRole(userId, nextRole);
       setUsersList(prev => prev.map(u => u.id === userId ? { ...u, role: nextRoleName } : u));
-      setSuccess(`User role changed to ${nextRoleName}.`);
+      toast(`User role changed to ${nextRoleName}.`, 'success');
     } catch (err) {
-      alert('Error changing user role: ' + err.message);
+      toast('Error changing user role: ' + err.message, 'error');
     }
   };
 
@@ -135,8 +150,6 @@ export const Admin = () => {
     if (!dispTitleEn.trim() || !dispDescEn.trim()) return;
 
     setSubmittingDisruption(true);
-    setError('');
-    setSuccess('');
 
     try {
       await api.adminCreateDisruption(
@@ -146,7 +159,7 @@ export const Admin = () => {
         dispDescEn.trim(),
         dispLine.trim() || null
       );
-      setSuccess(t('Service disruption alert created.'));
+      toast(t('Service disruption alert created.'), 'success');
       setDispTitleEn('');
       setDispTitleAr('');
       setDispDescEn('');
@@ -155,7 +168,7 @@ export const Admin = () => {
       const res = await api.getDisruptions();
       setDisruptionsList(res.data || []);
     } catch (err) {
-      setError(err.message || 'Failed to create disruption.');
+      toast(err.message || 'Failed to create disruption.', 'error');
     } finally {
       setSubmittingDisruption(false);
     }
@@ -165,28 +178,119 @@ export const Admin = () => {
     try {
       await api.adminDeactivateDisruption(id);
       setDisruptionsList(prev => prev.map(d => d.id === id ? { ...d, isActive: false } : d));
-      setSuccess(t('Service disruption deactivated.'));
+      toast(t('Service disruption deactivated.'), 'success');
     } catch (err) {
-      alert('Failed to deactivate disruption: ' + err.message);
+      toast('Failed to deactivate disruption: ' + err.message, 'error');
     }
   };
 
-  const handleOpenReview = (sug) => {
-    setReviewingSug(sug);
-    setReviewNotes('');
+  const handleOpenTrainReview = (sug) => {
+    setReviewingTrain({
+      id: sug.id,
+      trainNumber: sug.trainNumber || '',
+      nameAr: sug.nameAr || '',
+      nameEn: sug.nameEn || '',
+      descriptionAr: sug.descriptionAr || '',
+      descriptionEn: sug.descriptionEn || '',
+      routeDescriptionEn: sug.routeDescriptionEn || '',
+      adminNotes: sug.adminNotes || ''
+    });
   };
 
-  const handleReviewSuggestion = async (status) => {
-    if (!reviewingSug) return;
+  const handleOpenStopReview = (sug) => {
+    setReviewingStop({
+      id: sug.id,
+      code: sug.code || '',
+      nameAr: sug.nameAr || '',
+      nameEn: sug.nameEn || '',
+      cityId: sug.cityId || '',
+      newCityNameAr: sug.newCityNameAr || '',
+      newCityNameEn: sug.newCityNameEn || '',
+      newCityGovernorateId: sug.newCityGovernorateId || '',
+      latitude: sug.latitude !== undefined ? sug.latitude : '',
+      longitude: sug.longitude !== undefined ? sug.longitude : '',
+      descriptionAr: sug.descriptionAr || '',
+      descriptionEn: sug.descriptionEn || '',
+      adminNotes: sug.adminNotes || ''
+    });
+  };
+
+  const handleReviewTrainSuggestion = async (status) => {
+    if (!reviewingTrain) return;
     setSubmittingReview(true);
-    
     try {
-      await api.adminReviewSuggestion(reviewingSug.id, status, reviewNotes.trim() || null);
-      setSuggestionsList(prev => prev.filter(s => s.id !== reviewingSug.id));
-      setReviewingSug(null);
-      setSuccess(`Suggestion successfully ${status === 1 ? 'approved' : 'rejected'}.`);
+      await api.adminReviewTrainSuggestion(reviewingTrain.id, status, {
+        trainNumber: reviewingTrain.trainNumber,
+        nameAr: reviewingTrain.nameAr,
+        nameEn: reviewingTrain.nameEn,
+        descriptionAr: reviewingTrain.descriptionAr || null,
+        descriptionEn: reviewingTrain.descriptionEn || null,
+        routeDescriptionEn: reviewingTrain.routeDescriptionEn || null,
+        adminNotes: reviewingTrain.adminNotes || null
+      });
+
+      if (status === 1 || status === 2) {
+        setTrainSuggestionsList(prev => prev.filter(s => s.id !== reviewingTrain.id));
+        toast(`Train suggestion successfully ${status === 1 ? 'approved' : 'rejected'}.`, 'success');
+      } else {
+        // Save Draft (status = 0)
+        setTrainSuggestionsList(prev => prev.map(s => s.id === reviewingTrain.id ? { ...s, ...reviewingTrain } : s));
+        toast('Train suggestion draft saved successfully.', 'success');
+      }
+      setReviewingTrain(null);
     } catch (err) {
-      alert('Failed to review suggestion: ' + err.message);
+      toast('Failed to review train suggestion: ' + err.message, 'error');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleReviewStopSuggestion = async (status) => {
+    if (!reviewingStop) return;
+
+    if (status === 1) {
+      if (!reviewingStop.code.trim()) {
+        toast('Stop code is required.', 'error');
+        return;
+      }
+      if (!reviewingStop.nameEn.trim() || !reviewingStop.nameAr.trim()) {
+        toast('Stop names are required.', 'error');
+        return;
+      }
+      if (!reviewingStop.cityId && (!reviewingStop.newCityNameEn.trim() || !reviewingStop.newCityNameAr.trim() || !reviewingStop.newCityGovernorateId)) {
+        toast('Please select an existing city or enter new city details.', 'error');
+        return;
+      }
+    }
+
+    setSubmittingReview(true);
+    try {
+      await api.adminReviewStopSuggestion(reviewingStop.id, status, {
+        code: reviewingStop.code,
+        nameAr: reviewingStop.nameAr,
+        nameEn: reviewingStop.nameEn,
+        cityId: reviewingStop.cityId ? reviewingStop.cityId : null,
+        newCityNameAr: reviewingStop.cityId ? null : (reviewingStop.newCityNameAr || null),
+        newCityNameEn: reviewingStop.cityId ? null : (reviewingStop.newCityNameEn || null),
+        newCityGovernorateId: reviewingStop.cityId ? null : (reviewingStop.newCityGovernorateId || null),
+        latitude: reviewingStop.latitude !== '' ? parseFloat(reviewingStop.latitude) : null,
+        longitude: reviewingStop.longitude !== '' ? parseFloat(reviewingStop.longitude) : null,
+        descriptionAr: reviewingStop.descriptionAr || null,
+        descriptionEn: reviewingStop.descriptionEn || null,
+        adminNotes: reviewingStop.adminNotes || null
+      });
+
+      if (status === 1 || status === 2) {
+        setStopSuggestionsList(prev => prev.filter(s => s.id !== reviewingStop.id));
+        toast(`Stop suggestion successfully ${status === 1 ? 'approved' : 'rejected'}.`, 'success');
+      } else {
+        // Save Draft (status = 0)
+        setStopSuggestionsList(prev => prev.map(s => s.id === reviewingStop.id ? { ...s, ...reviewingStop } : s));
+        toast('Stop suggestion draft saved successfully.', 'success');
+      }
+      setReviewingStop(null);
+    } catch (err) {
+      toast('Failed to review stop suggestion: ' + err.message, 'error');
     } finally {
       setSubmittingReview(false);
     }
@@ -195,14 +299,12 @@ export const Admin = () => {
   const handleImportStops = async () => {
     if (!stopsCsv.trim()) return;
     setImportingStops(true);
-    setError('');
-    setSuccess('');
     try {
       const res = await api.adminImportStops(stopsCsv.trim());
-      setSuccess(`Imported ${res.data} stops successfully!`);
+      toast(`Imported ${res.data} stops successfully!`, 'success');
       setStopsCsv('');
     } catch (err) {
-      setError(err.message || 'Failed to import stops.');
+      toast(err.message || 'Failed to import stops.', 'error');
     } finally {
       setImportingStops(false);
     }
@@ -211,14 +313,12 @@ export const Admin = () => {
   const handleImportTrains = async () => {
     if (!trainsCsv.trim()) return;
     setImportingTrains(true);
-    setError('');
-    setSuccess('');
     try {
       const res = await api.adminImportTrains(trainsCsv.trim());
-      setSuccess(`Imported ${res.data} trains and schedules successfully!`);
+      toast(`Imported ${res.data} trains and schedules successfully!`, 'success');
       setTrainsCsv('');
     } catch (err) {
-      setError(err.message || 'Failed to import trains.');
+      toast(err.message || 'Failed to import trains.', 'error');
     } finally {
       setImportingTrains(false);
     }
@@ -238,15 +338,13 @@ export const Admin = () => {
     e.preventDefault();
     if (!selectedTrainId || !trackGeoJson.trim()) return;
     setUploadingTrack(true);
-    setError('');
-    setSuccess('');
     try {
       await api.uploadTrack(selectedTrainId, trackGeoJson.trim());
-      setSuccess('Railway track polyline uploaded and stop coordinates snapped successfully!');
+      toast('Railway track polyline uploaded and stop coordinates snapped successfully!', 'success');
       setTrackGeoJson('');
       setSelectedTrainId('');
     } catch (err) {
-      setError(err.message || 'Failed to upload track geometry.');
+      toast(err.message || 'Failed to upload track geometry.', 'error');
     } finally {
       setUploadingTrack(false);
     }
@@ -255,13 +353,11 @@ export const Admin = () => {
   const handleSaveSettings = async () => {
     if (!systemSettings) return;
     setSavingSettings(true);
-    setError('');
-    setSuccess('');
     try {
       await api.adminUpdateSystemSettings(systemSettings);
-      setSuccess('System settings saved successfully.');
+      toast('System settings saved successfully.', 'success');
     } catch (err) {
-      setError('Failed to save settings: ' + err.message);
+      toast('Failed to save settings: ' + err.message, 'error');
     } finally {
       setSavingSettings(false);
     }
@@ -271,31 +367,33 @@ export const Admin = () => {
     try {
       await api.adminApproveLiveUpdate(id);
       setPendingUpdates(prev => prev.filter(u => u.id !== id));
-      setSuccess('Live update approved successfully.');
+      toast('Live update approved successfully.', 'success');
     } catch (err) {
-      alert('Error approving update: ' + err.message);
+      toast('Error approving update: ' + err.message, 'error');
     }
   };
 
   const handleDeleteUpdate = async (id) => {
-    if (!window.confirm(t('Are you sure you want to reject and delete this update?'))) return;
+    const isConfirmed = await confirm(t('Are you sure you want to reject and delete this update?'));
+    if (!isConfirmed) return;
     try {
       await api.adminDeleteLiveUpdate(id);
       setPendingUpdates(prev => prev.filter(u => u.id !== id));
-      setSuccess('Live update rejected and deleted.');
+      toast('Live update rejected and deleted.', 'success');
     } catch (err) {
-      alert('Error deleting update: ' + err.message);
+      toast('Error deleting update: ' + err.message, 'error');
     }
   };
 
   const handleConfirmRemoval = async (id) => {
-    if (!window.confirm(t('Are you sure you want to confirm removal and delete this update?'))) return;
+    const isConfirmed = await confirm(t('Are you sure you want to confirm removal and delete this update?'));
+    if (!isConfirmed) return;
     try {
       await api.adminDeleteLiveUpdate(id);
       setRemovalRequests(prev => prev.filter(u => u.id !== id));
-      setSuccess('Live update deleted successfully.');
+      toast('Live update deleted successfully.', 'success');
     } catch (err) {
-      alert('Error confirming removal: ' + err.message);
+      toast('Error confirming removal: ' + err.message, 'error');
     }
   };
 
@@ -303,9 +401,9 @@ export const Admin = () => {
     try {
       await api.adminDenyLiveUpdateRemoval(id);
       setRemovalRequests(prev => prev.filter(u => u.id !== id));
-      setSuccess('Live update removal request denied.');
+      toast('Live update removal request denied.', 'success');
     } catch (err) {
-      alert('Error denying removal: ' + err.message);
+      toast('Error denying removal: ' + err.message, 'error');
     }
   };
 
@@ -345,7 +443,6 @@ export const Admin = () => {
       </div>
 
       {error && <div style={{ color: 'var(--danger)', fontWeight: 500 }}>{error}</div>}
-      {success && <div style={{ color: 'var(--success)', fontWeight: 500 }}>{success}</div>}
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
@@ -459,37 +556,116 @@ export const Admin = () => {
 
           {/* ROUTE SUGGESTIONS TAB */}
           {activeTab === 'suggestions' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {suggestionsList.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>{t('noPendingSug')}</p>
-              ) : (
-                suggestionsList.map((sug) => (
-                  <div key={sug.id} className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '20px' }}>
-                    <div style={{ flexGrow: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-                          {t('timetableHeader')} #{sug.trainNumber} - {isRTL ? sug.nameAr : sug.nameEn}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>By: {sug.authorName || 'User'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Sub tabs */}
+              <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                <button
+                  onClick={() => setSuggestionsSubTab('trains')}
+                  className={`btn ${suggestionsSubTab === 'trains' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '6px 16px', fontSize: '0.8rem', borderRadius: '8px' }}
+                >
+                  🚂 {isRTL ? 'مقترحات القطارات' : 'Train Suggestions'}
+                </button>
+                <button
+                  onClick={() => setSuggestionsSubTab('stops')}
+                  className={`btn ${suggestionsSubTab === 'stops' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '6px 16px', fontSize: '0.8rem', borderRadius: '8px' }}
+                >
+                  📍 {isRTL ? 'مقترحات المحطات' : 'Stop Suggestions'}
+                </button>
+              </div>
+
+              {suggestionsSubTab === 'trains' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {trainSuggestionsList.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
+                      {isRTL ? 'لا توجد مقترحات قطارات قيد الانتظار' : 'No pending train suggestions.'}
+                    </p>
+                  ) : (
+                    trainSuggestionsList.map((sug) => (
+                      <div key={sug.id} className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '20px' }}>
+                        <div style={{ flexGrow: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                              {isRTL ? 'قطار رقم' : 'Train #'} {sug.trainNumber} - {isRTL ? sug.nameAr : sug.nameEn}
+                            </span>
+                            <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
+                              {isRTL ? 'قيد المراجعة' : 'Pending Review'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {isRTL ? 'بواسطة:' : 'By:'} {sug.suggestedByName || 'User'}
+                            </span>
+                          </div>
+
+                          {sug.routeDescriptionEn && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                              <strong>{isRTL ? 'المسار المقترح:' : 'Suggested Route:'}</strong> {sug.routeDescriptionEn}
+                            </p>
+                          )}
+                          
+                          {(isRTL ? sug.descriptionAr : sug.descriptionEn) && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              <strong>{isRTL ? 'الوصف:' : 'Description:'}</strong> {isRTL ? sug.descriptionAr : sug.descriptionEn}
+                            </p>
+                          )}
+                        </div>
+
+                        <button onClick={() => handleOpenTrainReview(sug)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>
+                          {isRTL ? 'مراجعة وتعديل' : 'Review & Edit'}
+                        </button>
                       </div>
-                      
-                      {(isRTL ? sug.routeDescriptionAr : sug.routeDescriptionEn) && (
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                          <strong>{isRTL ? 'المسار:' : 'Route:'}</strong> {isRTL ? sug.routeDescriptionAr : sug.routeDescriptionEn}
-                        </p>
-                      )}
-                      {(isRTL ? sug.descriptionAr : sug.descriptionEn) && (
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                          <strong>{isRTL ? 'ملاحظات:' : 'Notes:'}</strong> {isRTL ? sug.descriptionAr : sug.descriptionEn}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <button onClick={() => handleOpenReview(sug)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>
-                      {t('review')}
-                    </button>
-                  </div>
-                ))
+                    ))
+                  )}
+                </div>
+              )}
+
+              {suggestionsSubTab === 'stops' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {stopSuggestionsList.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
+                      {isRTL ? 'لا توجد مقترحات محطات قيد الانتظار' : 'No pending stop suggestions.'}
+                    </p>
+                  ) : (
+                    stopSuggestionsList.map((sug) => (
+                      <div key={sug.id} className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '20px' }}>
+                        <div style={{ flexGrow: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                              {isRTL ? 'محطة:' : 'Stop:'} {isRTL ? sug.nameAr : sug.nameEn} ({sug.code})
+                            </span>
+                            <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
+                              {isRTL ? 'قيد المراجعة' : 'Pending Review'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {isRTL ? 'بواسطة:' : 'By:'} {sug.suggestedByName || 'User'}
+                            </span>
+                          </div>
+
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            <strong>{isRTL ? 'المدينة:' : 'City:'}</strong>{' '}
+                            {sug.cityId
+                              ? (isRTL ? sug.cityNameAr : sug.cityNameEn)
+                              : `${isRTL ? sug.newCityNameAr : sug.newCityNameEn} (${isRTL ? 'مدينة جديدة' : 'New City'})`}
+                          </p>
+
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            <strong>{isRTL ? 'الإحداثيات:' : 'Coordinates:'}</strong> Lat: {sug.latitude}, Long: {sug.longitude}
+                          </p>
+
+                          {(isRTL ? sug.descriptionAr : sug.descriptionEn) && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              <strong>{isRTL ? 'الوصف:' : 'Description:'}</strong> {isRTL ? sug.descriptionAr : sug.descriptionEn}
+                            </p>
+                          )}
+                        </div>
+
+                        <button onClick={() => handleOpenStopReview(sug)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>
+                          {isRTL ? 'مراجعة وتعديل' : 'Review & Edit'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -915,52 +1091,356 @@ export const Admin = () => {
         </>
       )}
 
-      {/* Review Suggestion Modal */}
-      {reviewingSug && (
+      {/* Review Train Suggestion Modal */}
+      {reviewingTrain && (
         <div style={{ position: 'fixed', top: 0, bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: 'var(--text-primary)', fontSize: '1.2rem' }}>{t('reviewSugTitle')} #{reviewingSug.trainNumber}</h3>
-              <button onClick={() => setReviewingSug(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '650px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: 800 }}>
+                {isRTL ? 'مراجعة مقترح القطار' : 'Review Train Suggestion'} #{reviewingTrain.trainNumber}
+              </h3>
+              <button onClick={() => setReviewingTrain(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                 <X size={20} />
               </button>
             </div>
 
-            <div style={{ marginBottom: '20px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              <div><strong>Name:</strong> {isRTL ? reviewingSug.nameAr : reviewingSug.nameEn}</div>
-              {(isRTL ? reviewingSug.routeDescriptionAr : reviewingSug.routeDescriptionEn) && <div style={{ marginTop: '6px' }}><strong>Route:</strong> {isRTL ? reviewingSug.routeDescriptionAr : reviewingSug.routeDescriptionEn}</div>}
-              {(isRTL ? reviewingSug.descriptionAr : reviewingSug.descriptionEn) && <div style={{ marginTop: '6px' }}><strong>Details:</strong> {isRTL ? reviewingSug.descriptionAr : reviewingSug.descriptionEn}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label>{isRTL ? 'رقم القطار' : 'Train Number'}</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={reviewingTrain.trainNumber}
+                  onChange={(e) => setReviewingTrain({ ...reviewingTrain, trainNumber: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label>{isRTL ? 'الاسم (بالإنجليزي)' : 'Name (English)'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={reviewingTrain.nameEn}
+                    onChange={(e) => setReviewingTrain({ ...reviewingTrain, nameEn: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{isRTL ? 'الاسم (بالعربي)' : 'Name (Arabic)'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={reviewingTrain.nameAr}
+                    onChange={(e) => setReviewingTrain({ ...reviewingTrain, nameAr: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label>{isRTL ? 'الوصف (بالإنجليزي)' : 'Description (English)'}</label>
+                  <textarea
+                    className="input-field"
+                    rows="2"
+                    value={reviewingTrain.descriptionEn}
+                    onChange={(e) => setReviewingTrain({ ...reviewingTrain, descriptionEn: e.target.value })}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{isRTL ? 'الوصف (بالعربي)' : 'Description (Arabic)'}</label>
+                  <textarea
+                    className="input-field"
+                    rows="2"
+                    value={reviewingTrain.descriptionAr}
+                    onChange={(e) => setReviewingTrain({ ...reviewingTrain, descriptionAr: e.target.value })}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>
+                  {isRTL ? 'مسار المحطات المقترحة (مفصولة بـ " -> ")' : 'Suggested Route Stops (separated by " -> ")'}
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={reviewingTrain.routeDescriptionEn}
+                  onChange={(e) => setReviewingTrain({ ...reviewingTrain, routeDescriptionEn: e.target.value })}
+                  placeholder="e.g. Cairo -> Tanta -> Alexandria"
+                />
+                <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                  {isRTL
+                    ? 'سيقوم النظام بالبحث عن المحطات حسب أسمائها الإنجليزية وربطها بالترتيب.'
+                    : 'System will match stops by their English names and link them in sequence.'}
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label>{isRTL ? 'ملاحظات المراجعة (أو سبب الرفض)' : 'Moderation / Admin Notes'}</label>
+                <textarea
+                  className="input-field"
+                  rows="3"
+                  value={reviewingTrain.adminNotes}
+                  onChange={(e) => setReviewingTrain({ ...reviewingTrain, adminNotes: e.target.value })}
+                  placeholder={isRTL ? 'اكتب ملاحظاتك هنا...' : 'Type feedback reason...'}
+                  style={{ resize: 'none' }}
+                />
+              </div>
             </div>
 
-            <div className="form-group">
-              <label>{t('decisionNotes')}</label>
-              <textarea 
-                className="input-field" 
-                rows="3" 
-                placeholder="Reason..."
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                style={{ resize: 'none' }}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '32px' }}>
+              <button
+                onClick={() => handleReviewTrainSuggestion(2)}
+                className="btn btn-danger"
                 disabled={submittingReview}
-              ></textarea>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button 
-                onClick={() => handleReviewSuggestion(2)} 
-                className="btn btn-danger" 
-                style={{ flexGrow: 1 }}
-                disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               >
-                <X size={16} /> {t('reject')}
+                <X size={16} /> {isRTL ? 'رفض وازالة' : 'Reject'}
               </button>
-              <button 
-                onClick={() => handleReviewSuggestion(1)} 
-                className="btn btn-primary" 
-                style={{ flexGrow: 1, background: 'var(--success)' }}
+              
+              <button
+                onClick={() => handleReviewTrainSuggestion(0)}
+                className="btn btn-secondary"
                 disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
               >
-                <Check size={16} /> {t('approve')}
+                💾 {isRTL ? 'حفظ كمسودة' : 'Save Draft'}
+              </button>
+
+              <button
+                onClick={() => handleReviewTrainSuggestion(1)}
+                className="btn btn-primary"
+                disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', borderColor: 'var(--success)' }}
+              >
+                <Check size={16} /> {isRTL ? 'موافقة واعتماد' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Stop Suggestion Modal */}
+      {reviewingStop && (
+        <div style={{ position: 'fixed', top: 0, bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '650px', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: 800 }}>
+                {isRTL ? 'مراجعة مقترح المحطة' : 'Review Stop Suggestion'} ({reviewingStop.code || 'NEW'})
+              </h3>
+              <button onClick={() => setReviewingStop(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label>{isRTL ? 'رمز المحطة' : 'Stop Code'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={reviewingStop.code}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, code: e.target.value.toUpperCase() })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{isRTL ? 'الاسم (بالإنجليزي)' : 'Name (English)'}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={reviewingStop.nameEn}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, nameEn: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>{isRTL ? 'الاسم (بالعربي)' : 'Name (Arabic)'}</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={reviewingStop.nameAr}
+                  onChange={(e) => setReviewingStop({ ...reviewingStop, nameAr: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label>{isRTL ? 'خط العرض' : 'Latitude'}</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    className="input-field"
+                    value={reviewingStop.latitude}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, latitude: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{isRTL ? 'خط الطول' : 'Longitude'}</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    className="input-field"
+                    value={reviewingStop.longitude}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, longitude: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>{isRTL ? 'المدينة' : 'City'}</label>
+                <select
+                  className="input-field"
+                  value={reviewingStop.cityId || 'new'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setReviewingStop({
+                      ...reviewingStop,
+                      cityId: val === 'new' ? '' : val
+                    });
+                  }}
+                >
+                  <option value="new" style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>
+                    ✨ {isRTL ? 'إضافة مدينة جديدة...' : 'Add New City...'}
+                  </option>
+                  {cities.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {isRTL ? c.nameAr : c.nameEn} ({isRTL ? c.governorateAr || c.governorateNameAr : c.governorateEn || c.governorateNameEn})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* New City form if cityId is empty/new */}
+              {(!reviewingStop.cityId) && (
+                <div style={{
+                  padding: '16px',
+                  borderRadius: '10px',
+                  background: 'rgba(99, 102, 241, 0.05)',
+                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--accent-primary)' }}>
+                    📌 {isRTL ? 'تفاصيل المدينة الجديدة' : 'New City Details'}
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>{isRTL ? 'اسم المدينة (En)' : 'City Name (En)'}</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={reviewingStop.newCityNameEn || ''}
+                        onChange={(e) => setReviewingStop({ ...reviewingStop, newCityNameEn: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label>{isRTL ? 'اسم المدينة (Ar)' : 'City Name (Ar)'}</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={reviewingStop.newCityNameAr || ''}
+                        onChange={(e) => setReviewingStop({ ...reviewingStop, newCityNameAr: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>{isRTL ? 'المحافظة' : 'Governorate'}</label>
+                    <select
+                      className="input-field"
+                      value={reviewingStop.newCityGovernorateId || ''}
+                      onChange={(e) => setReviewingStop({ ...reviewingStop, newCityGovernorateId: e.target.value })}
+                      required
+                    >
+                      <option value="">-- {isRTL ? 'اختر محافظة' : 'Select Governorate'} --</option>
+                      {governorates.map(g => (
+                        <option key={g.id} value={g.id}>
+                          {isRTL ? g.nameAr : g.nameEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label>{isRTL ? 'الوصف (En)' : 'Description (En)'}</label>
+                  <textarea
+                    className="input-field"
+                    rows="2"
+                    value={reviewingStop.descriptionEn}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, descriptionEn: e.target.value })}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{isRTL ? 'الوصف (Ar)' : 'Description (Ar)'}</label>
+                  <textarea
+                    className="input-field"
+                    rows="2"
+                    value={reviewingStop.descriptionAr}
+                    onChange={(e) => setReviewingStop({ ...reviewingStop, descriptionAr: e.target.value })}
+                    style={{ resize: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>{isRTL ? 'ملاحظات المراجعة (أو سبب الرفض)' : 'Moderation / Admin Notes'}</label>
+                <textarea
+                  className="input-field"
+                  rows="3"
+                  value={reviewingStop.adminNotes}
+                  onChange={(e) => setReviewingStop({ ...reviewingStop, adminNotes: e.target.value })}
+                  placeholder={isRTL ? 'اكتب ملاحظاتك هنا...' : 'Type feedback reason...'}
+                  style={{ resize: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginTop: '32px' }}>
+              <button
+                onClick={() => handleReviewStopSuggestion(2)}
+                className="btn btn-danger"
+                disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <X size={16} /> {isRTL ? 'رفض وازالة' : 'Reject'}
+              </button>
+
+              <button
+                onClick={() => handleReviewStopSuggestion(0)}
+                className="btn btn-secondary"
+                disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+              >
+                💾 {isRTL ? 'حفظ كمسودة' : 'Save Draft'}
+              </button>
+
+              <button
+                onClick={() => handleReviewStopSuggestion(1)}
+                className="btn btn-primary"
+                disabled={submittingReview}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', borderColor: 'var(--success)' }}
+              >
+                <Check size={16} /> {isRTL ? 'موافقة واعتماد' : 'Approve'}
               </button>
             </div>
           </div>

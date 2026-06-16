@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/authContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { PopupProvider } from './context/PopupContext';
 import { AdProvider } from './context/AdContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -44,8 +45,9 @@ function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <AdProvider>
+        <PopupProvider>
+          <AuthProvider>
+            <AdProvider>
             <BrowserRouter>
               <Routes>
                 {/* Public Authentication Routes */}
@@ -125,6 +127,7 @@ function App() {
             </BrowserRouter>
           </AdProvider>
         </AuthProvider>
+        </PopupProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

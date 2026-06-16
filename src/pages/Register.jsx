@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { useLanguage } from '../context/LanguageContext';
+import { usePopup } from '../context/PopupContext';
 import { MapPin, Lock, Mail, User as UserIcon, Loader } from 'lucide-react';
 
 export const Register = () => {
   const { register } = useAuth();
   const { t } = useLanguage();
+  const { toast } = usePopup();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState('');
@@ -14,7 +16,6 @@ export const Register = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -34,16 +35,15 @@ export const Register = () => {
 
     setLoading(true);
     setError('');
-    setSuccess('');
     try {
       await register(displayName, email, password);
-      setSuccess(t('Registration successful! Please sign in using your credentials.'));
+      toast(t('Registration successful! Please sign in using your credentials.'), 'success');
       setTimeout(() => {
         navigate('/login');
       }, 3000);
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Registration failed. Email might already be taken.');
+      toast(err.message || 'Registration failed. Email might already be taken.', 'error');
     } finally {
       setLoading(false);
     }
@@ -91,20 +91,6 @@ export const Register = () => {
           </div>
         )}
 
-        {success && (
-          <div style={{
-            background: 'var(--success-glow)',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
-            color: 'var(--success)',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            fontSize: '0.9rem',
-            fontWeight: 500
-          }}>
-            {success}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
