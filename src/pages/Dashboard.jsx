@@ -29,6 +29,8 @@ export const Dashboard = () => {
   const [todayTrips, setTodayTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // filter to show either all today trips or only those the user follows
+  const [showFollowedOnly, setShowFollowedOnly] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -40,7 +42,13 @@ export const Dashboard = () => {
       ]);
       setStats(statsRes.data);
       setFollowedTrips(followedRes.data || []);
-      setTodayTrips(todayRes.data || []);
+      // Sort by scheduledDeparture (first stop) ascending so earliest trips appear first
+      const sorted = (todayRes.data || []).slice().sort((a, b) => {
+        const ta = a.scheduledDeparture ?? a.tripDate ?? '';
+        const tb = b.scheduledDeparture ?? b.tripDate ?? '';
+        return String(ta).localeCompare(String(tb));
+      });
+      setTodayTrips(sorted);
     } catch (err) {
       console.error(err);
       setError(t('Failed to load home page data. Please try again.'));
@@ -252,9 +260,15 @@ export const Dashboard = () => {
           
           {/* Today's Active Trips Panel */}
           <div className="glass-panel" style={{ minHeight: '300px' }}>
-            <div className="panel-header">
-              <h3><Activity size={20} color="var(--accent-secondary)" /> {t('todayTrips')}</h3>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{todayTrips.length} {t('active')}</span>
+            <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3><Activity size={20} color="var(--accent-secondary)" /> {t('todayTrips')}</h3>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{todayTrips.length} {t('active')}</span>
+              </div>
+              <div>
+                <button className="btn btn-sm" onClick={() => setShowFollowedOnly(false)} disabled={!showFollowedOnly}>{t('All')}</button>
+                <button className="btn btn-sm" style={{ marginLeft: '8px' }} onClick={() => setShowFollowedOnly(true)} disabled={showFollowedOnly}>{t('Followed')}</button>
+              </div>
             </div>
             <div className="panel-body" style={{ padding: '12px 0' }}>
               {todayTrips.length === 0 ? (
@@ -264,127 +278,92 @@ export const Dashboard = () => {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {todayTrips.map((trip) => (
-                    <div 
-                      key={trip.id} 
-                      onClick={() => navigate(`/trip/${trip.id}`)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '14px 24px',
-                        borderBottom: '1px solid var(--border-color)',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(120, 120, 120, 0.02)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '8px',
-                          background: 'rgba(6, 182, 212, 0.1)',
-                          color: 'var(--accent-secondary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontFamily: 'Outfit'
-                        }}>
-                          {trip.trainNumber}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                            {isRTL ? trip.trainNameAr : trip.trainNameEn}
+                  {(() => {
+                    // determine which trips to display based on filter
+                    const tripsToShow = showFollowedOnly
+                      ? todayTrips.filter(t => followedTrips.some(f => f.id === t.id))
+                      : todayTrips;
+                    return tripsToShow.map((trip) => {
+                      const isFollowed = followedTrips.some(f => f.id === trip.id);
+                      const badgeStyle = {
+                        position: 'absolute',
+                        top: 0,
+                        width: 14,
+                        height: 14,
+                        backgroundColor: '#f97316',
+                        // Center of circle is at the corner of the card.
+                        // The arc curves inward, so radius goes on the OPPOSITE diagonal corner.
+                        ...(isRTL
+                          ? { right: 0, borderBottomLeftRadius: 14 }   // center top-right → arc bottom-left
+                          : { left: 0, borderBottomRightRadius: 14 })  // center top-left  → arc bottom-right
+                      };
+                      return (
+                        <div 
+                          key={trip.id}
+                          onClick={() => navigate(`/trip/${trip.id}`)}
+                          style={{
+                            position: 'relative',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '14px 24px',
+                            borderBottom: '1px solid var(--border-color)',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(120, 120, 120, 0.02)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          {isFollowed && <div style={badgeStyle} />}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <div style={{
+                              minWidth: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              background: 'rgba(6, 182, 212, 0.1)',
+                              color: 'var(--accent-secondary)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontFamily: 'Outfit',
+                              padding: '0 8px',
+                              fontSize: '0.85rem',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {trip.trainNumber}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                                {isRTL ? trip.trainNameAr : trip.trainNameEn}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span>{t('trackDate')}: {trip.tripDate}</span>
+                                <span>•</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Users size={10} /> {trip.followerCount}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                            <span>{t('trackDate')}: {trip.tripDate}</span>
-                            <span>•</span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Users size={10} /> {trip.followerCount}
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span className={`badge ${getStatusBadgeClass(trip.status)}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+                              {t(trip.status)}
                             </span>
+                            <div style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+                              {t('trackLive')} <ExternalLink size={12} />
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span className={`badge ${getStatusBadgeClass(trip.status)}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
-                          {t(trip.status)}
-                        </span>
-                        <div style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
-                          {t('trackLive')} <ExternalLink size={12} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Followed Trips Panel */}
-          <div className="glass-panel">
-            <div className="panel-header">
-              <h3><Train size={20} color="var(--accent-primary)" /> {t('followedTrains')}</h3>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{followedTrips.length}</span>
-            </div>
-            <div className="panel-body" style={{ padding: '12px 0' }}>
-              {followedTrips.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--text-muted)' }}>
-                  <p style={{ fontSize: '0.85rem' }}>{t('noFollowedTrips')}</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {followedTrips.map((trip) => (
-                    <div 
-                      key={trip.id} 
-                      onClick={() => navigate(`/trip/${trip.id}`)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '14px 24px',
-                        borderBottom: '1px solid var(--border-color)',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(120, 120, 120, 0.02)'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '8px',
-                          background: 'rgba(99, 102, 241, 0.1)',
-                          color: 'var(--accent-primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 700,
-                          fontFamily: 'Outfit'
-                        }}>
-                          {trip.trainNumber}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                            {isRTL ? trip.trainNameAr : trip.trainNameEn}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                            <span>{t('myStatus')}: <strong>{t(trip.personalStatus)}</strong></span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <ArrowRight size={16} color="var(--text-muted)" style={{ transform: isRTL ? 'rotate(180deg)' : undefined }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Live Community Updates Feed */}

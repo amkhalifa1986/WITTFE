@@ -125,6 +125,7 @@ export const TripDetails = () => {
       setTrip((prevTrip) => {
         if (!prevTrip) return null;
         const updateId = update.id || update.Id;
+        // Dedup by ID — prevents double-render when our own POST is echoed back by SignalR
         if (prevTrip.recentUpdates?.some(u => (u.id || u.Id) === updateId)) return prevTrip;
 
         let updatedStatus = prevTrip.status;
@@ -443,23 +444,11 @@ export const TripDetails = () => {
 
         const savedUpdate = res.data;
 
-        const newUpdate = {
-          id: savedUpdate.id,
-          authorId: user.id,
-          authorName: user.displayName,
-          authorAvatarUrl: user.avatarUrl,
-          content: content,
-          statusTag: statusTag || null,
-          crowdState: crowdState || null,
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          createdAt: new Date().toISOString()
-        };
-
-        setTrip(prev => prev ? {
-          ...prev,
-          recentUpdates: [newUpdate, ...(prev.recentUpdates || [])]
-        } : null);
+        // Do NOT insert optimistically here — SignalR will broadcast the saved update
+        // back to all clients (including the poster) and the listener above will add it.
+        // Inserting here AND letting SignalR add it causes the duplicate-until-refresh bug.
+        // The dedup guard in the SignalR listener (keyed on update.id) prevents any echo duplication.
+        void savedUpdate; // reference kept for future use (e.g. navigating to the update)
 
         setContent('');
         setStatusTag('');
