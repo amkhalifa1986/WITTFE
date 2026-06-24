@@ -3,6 +3,25 @@ import api from '../services/api';
 
 const AdContext = createContext(null);
 
+// localStorage key that stores a Set of all "page instances" where the ad was already shown.
+// Format: "pageKey" for single-instance pages, "pageKey:instanceId" for detail pages.
+const SEEN_ADS_KEY = 'witt_seen_ads';
+
+const getSeenAds = () => {
+  try {
+    const raw = localStorage.getItem(SEEN_ADS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+const saveSeenAds = (set) => {
+  try {
+    localStorage.setItem(SEEN_ADS_KEY, JSON.stringify([...set]));
+  } catch { /* storage full — ignore */ }
+};
+
 export const AdProvider = ({ children }) => {
   const [adsConfig, setAdsConfig] = useState({});
   const [loading, setLoading] = useState(true);
@@ -12,8 +31,8 @@ export const AdProvider = ({ children }) => {
       try {
         const response = await api.getAdSettings();
         if (response && response.isSuccess) {
-          const config = typeof response.data === 'string' 
-            ? JSON.parse(response.data) 
+          const config = typeof response.data === 'string'
+            ? JSON.parse(response.data)
             : (response.data || {});
           setAdsConfig(config);
         }
@@ -23,36 +42,49 @@ export const AdProvider = ({ children }) => {
         setLoading(false);
       }
     };
-
     fetchAdSettings();
   }, []);
 
   const [visitorId] = useState(() => {
     let saved = localStorage.getItem('witt_ad_visitor_id');
     if (!saved) {
-      saved = (typeof crypto !== 'undefined' && crypto.randomUUID) 
-        ? crypto.randomUUID() 
+      saved = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
         : 'visitor-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
       localStorage.setItem('witt_ad_visitor_id', saved);
     }
     return saved;
   });
 
-  const shouldShowAd = (pageKey) => {
-    if (loading) return false;
-    // Check if ads are enabled for this page from admin config
-    const isEnabled = !!adsConfig[pageKey];
-    if (!isEnabled) return false;
+  /**
+   * Build the composite key used for deduplication.
+   * - Single-instance pages (dashboard, search …): key = pageKey
+   * - Detail pages (trip, train …): key = "pageKey:instanceId"
+   */
+  const buildKey = (pageKey, instanceId) =>
+    instanceId ? `${pageKey}:${instanceId}` : pageKey;
 
-    // Check if ad was already shown in this session
-    const sessionKey = `ad_shown_${pageKey}`;
-    const alreadyShown = sessionStorage.getItem(sessionKey);
-    return !alreadyShown;
+  /**
+   * Returns true if the ad should be shown for this specific page instance.
+   * @param {string} pageKey   - admin-configured page identifier (e.g. 'tripDetails')
+   * @param {string} instanceId - unique ID of the specific item (e.g. trip.id). Leave blank for single-instance pages.
+   */
+  const shouldShowAd = (pageKey, instanceId = null) => {
+    if (loading) return false;
+    // Check admin config — is this page enabled?
+    if (!adsConfig[pageKey]) return false;
+    // Check if this specific instance was already seen
+    const seen = getSeenAds();
+    return !seen.has(buildKey(pageKey, instanceId));
   };
 
-  const markAdShown = (pageKey) => {
-    const sessionKey = `ad_shown_${pageKey}`;
-    sessionStorage.setItem(sessionKey, 'true');
+  /**
+   * Marks the ad for this page instance as seen (persisted to localStorage).
+   */
+  const markAdShown = (pageKey, instanceId = null) => {
+    const seen = getSeenAds();
+    seen.add(buildKey(pageKey, instanceId));
+    saveSeenAds(seen);
   };
 
   const trackImpression = async (pageKey, trainNumber = null) => {
@@ -80,8 +112,6 @@ export const AdProvider = ({ children }) => {
 
 export const useAds = () => {
   const context = useContext(AdContext);
-  if (!context) {
-    throw new Error('useAds must be used within an AdProvider');
-  }
+  if (!context) throw new Error('useAds must be used within an AdProvider');
   return context;
 };

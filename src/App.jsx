@@ -9,6 +9,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import DashboardNew from './pages/DashboardNew';
 import Search from './pages/Search';
 import TripDetails from './pages/TripDetails';
 import TrainDetails from './pages/TrainDetails';
@@ -59,7 +60,7 @@ function App() {
                   path="/" 
                   element={
                     <ProtectedRoute>
-                      <Dashboard />
+                      <DashboardNew />
                     </ProtectedRoute>
                   } 
                 />

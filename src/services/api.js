@@ -610,6 +610,10 @@ class ApiClient {
     }).catch(() => {}); // catch and ignore to prevent recursive errors
   }
 
+  async getGalleryItems() {
+    return this.request('api/gallery');
+  }
+
   resolveImageUrl(url) {
     if (!url) return null;
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {

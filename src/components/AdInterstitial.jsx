@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useAds } from '../context/AdContext';
 import { useLanguage } from '../context/LanguageContext';
 
-export const AdInterstitial = ({ pageKey, trainNumber = null }) => {
+export const AdInterstitial = ({ pageKey, instanceId = null, trainNumber = null }) => {
   const { shouldShowAd, markAdShown, trackImpression, trackClick } = useAds();
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
@@ -11,10 +11,9 @@ export const AdInterstitial = ({ pageKey, trainNumber = null }) => {
   const adRef = useRef(null);
 
   useEffect(() => {
-    if (shouldShowAd(pageKey)) {
+    if (shouldShowAd(pageKey, instanceId)) {
       setVisible(true);
       trackImpression(pageKey, trainNumber);
-      // Initialize AdSense ad if adsbygoogle is loaded on window
       try {
         if (window.adsbygoogle) {
           (window.adsbygoogle = window.adsbygoogle || []).push({});
@@ -23,7 +22,8 @@ export const AdInterstitial = ({ pageKey, trainNumber = null }) => {
         console.error('Failed to load Google AdSense unit:', e);
       }
     }
-  }, [pageKey, shouldShowAd, trainNumber]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageKey, instanceId]);
 
   useEffect(() => {
     if (!visible) return;
@@ -44,7 +44,7 @@ export const AdInterstitial = ({ pageKey, trainNumber = null }) => {
   const handleClose = () => {
     if (countdown > 0) return;
     setVisible(false);
-    markAdShown(pageKey);
+    markAdShown(pageKey, instanceId);
   };
 
   if (!visible) return null;

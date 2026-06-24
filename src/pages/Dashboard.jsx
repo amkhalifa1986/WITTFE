@@ -44,9 +44,9 @@ export const Dashboard = () => {
       setFollowedTrips(followedRes.data || []);
       // Sort by scheduledDeparture (first stop) ascending so earliest trips appear first
       const sorted = (todayRes.data || []).slice().sort((a, b) => {
-        const ta = a.scheduledDeparture ?? a.tripDate ?? '';
-        const tb = b.scheduledDeparture ?? b.tripDate ?? '';
-        return String(ta).localeCompare(String(tb));
+        const ta = a.scheduledDeparture || '99:99:99';
+        const tb = b.scheduledDeparture || '99:99:99';
+        return ta.localeCompare(tb);
       });
       setTodayTrips(sorted);
     } catch (err) {
@@ -151,6 +151,31 @@ export const Dashboard = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <AdInterstitial pageKey="dashboard" />
+
+      {/* Design Experiment Invite Banner */}
+      <div className="glass-panel" style={{
+        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)',
+        border: '1px solid rgba(99, 102, 241, 0.3)',
+        padding: '16px 24px',
+        borderRadius: '12px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div>
+          <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+            ✨ Experience the New Dashboard Design!
+          </h4>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            We've prepared an alternative dashboard incorporating our latest modern visual design suggestions.
+          </p>
+        </div>
+        <Link to="/new-dashboard" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+          View New Design
+        </Link>
+      </div>
       {/* Page Header 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -348,8 +373,21 @@ export const Dashboard = () => {
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <span className={`badge ${getStatusBadgeClass(trip.status)}`} style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
-                              {t(trip.status)}
+                            <span 
+                              className="badge" 
+                              style={{
+                                fontSize: '0.65rem', 
+                                padding: '2px 8px',
+                                backgroundColor: trip.statusDetails?.color ? `${trip.statusDetails.color}20` : 'var(--info-glow)',
+                                color: trip.statusDetails?.color || 'var(--info)',
+                                borderColor: trip.statusDetails?.color ? `${trip.statusDetails.color}40` : 'rgba(59, 130, 246, 0.3)',
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                            >
+                              {isRTL 
+                                ? (trip.statusDetails?.nameAr || trip.status) 
+                                : (trip.statusDetails?.nameEn || trip.status)}
                             </span>
                             <div style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
                               {t('trackLive')} <ExternalLink size={12} />

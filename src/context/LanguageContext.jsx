@@ -405,7 +405,9 @@ const translations = {
     stopDetails: 'Stop Details',
     noDescriptionAvailable: 'No description available',
     editStop: 'Edit Stop',
-    viewDetailsAndMap: 'View Details & Map'
+    viewDetailsAndMap: 'View Details & Map',
+    All: 'All',
+    Followed: 'Followed'
   },
   ar: {
     // Nav & Common
@@ -809,7 +811,9 @@ const translations = {
     stopDetails: 'تفاصيل المحطة',
     noDescriptionAvailable: 'لا يوجد وصف متاح',
     editStop: 'تعديل المحطة',
-    viewDetailsAndMap: 'عرض التفاصيل والخريطة'
+    viewDetailsAndMap: 'عرض التفاصيل والخريطة',
+    All: 'الكل',
+    Followed: 'المتابعة'
   }
 };
 

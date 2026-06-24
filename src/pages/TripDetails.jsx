@@ -129,12 +129,20 @@ export const TripDetails = () => {
         if (prevTrip.recentUpdates?.some(u => (u.id || u.Id) === updateId)) return prevTrip;
 
         let updatedStatus = prevTrip.status;
+        let shouldRefresh = false;
         if (!update.authorId && update.statusTag) {
           const validStatuses = ['Scheduled', 'Departed', 'InTransit', 'Arrived', 'Cancelled', 'Delayed'];
           const matched = validStatuses.find(s => s.toLowerCase() === update.statusTag.toLowerCase());
           if (matched) {
             updatedStatus = matched;
+            shouldRefresh = true;
           }
+        }
+
+        if (shouldRefresh) {
+          setTimeout(() => {
+            fetchTripDetails();
+          }, 100);
         }
 
         return {
@@ -608,9 +616,14 @@ export const TripDetails = () => {
     try {
       const res = await api.updateTripStatus(trip.id, 2);
       if (res.isSuccess) {
-        setTrip(prev => prev ? { ...prev, status: 'InTransit' } : null);
+        setTrip(prev => prev ? { 
+          ...prev, 
+          status: res.data.status,
+          statusDetails: res.data.statusDetails
+        } : null);
         setShowStartPrompt(false);
         setPassengerMode(true);
+        fetchTripDetails();
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(async (pos) => {
             try {
@@ -638,9 +651,14 @@ export const TripDetails = () => {
     try {
       const res = await api.updateTripStatus(trip.id, 3);
       if (res.isSuccess) {
-        setTrip(prev => prev ? { ...prev, status: 'Arrived' } : null);
+        setTrip(prev => prev ? { 
+          ...prev, 
+          status: res.data.status,
+          statusDetails: res.data.statusDetails
+        } : null);
         setShowEndPrompt(false);
         setPassengerMode(false);
+        fetchTripDetails();
       }
     } catch (err) {
       toast((isRTL ? 'فشل في تحديث حالة الرحلة: ' : 'Failed to update trip status: ') + err.message, 'error');
@@ -743,7 +761,7 @@ export const TripDetails = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      <AdInterstitial pageKey="tripDetails" trainNumber={trip.trainNumber} />
+      <AdInterstitial pageKey="tripDetails" instanceId={id} trainNumber={trip.trainNumber} />
       {/* Header Info Banner */}
       <div className="glass-panel" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -767,7 +785,20 @@ export const TripDetails = () => {
               <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 {isRTL ? trip.trainNameAr : trip.trainNameEn}
               </h1>
-              <span className={`badge ${getStatusBadgeClass(trip.status)}`}>{t(trip.status)}</span>
+              <span 
+                className="badge" 
+                style={{
+                  backgroundColor: trip.statusDetails?.color ? `${trip.statusDetails.color}20` : 'var(--info-glow)',
+                  color: trip.statusDetails?.color || 'var(--info)',
+                  borderColor: trip.statusDetails?.color ? `${trip.statusDetails.color}40` : 'rgba(59, 130, 246, 0.3)',
+                  borderWidth: '1px',
+                  borderStyle: 'solid'
+                }}
+              >
+                {isRTL 
+                  ? (trip.statusDetails?.nameAr || trip.status) 
+                  : (trip.statusDetails?.nameEn || trip.status)}
+              </span>
               {(isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn) && (
                 <span className="badge badge-info" style={{ textTransform: 'none' }}>
                   {isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn}
@@ -1124,12 +1155,12 @@ export const TripDetails = () => {
               </h4>
               <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '8px', position: 'relative' }}>
                 <div className="trip-timeline" style={{ marginTop: 0 }}>
-                  {trip.routeStops?.map((stop) => {
+                  {trip.routeStops?.map((stop, index) => {
                     const isPassed = stop.stopOrder < currentStopOrder;
                     const isCurrent = stop.stopOrder === currentStopOrder;
                     
                     return (
-                      <div key={stop.stopId} className={`timeline-item ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}`}>
+                      <div key={`${stop.stopId}-${stop.stopOrder || index}`} className={`timeline-item ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}`}>
                         <div className="timeline-node"></div>
                         <div className="timeline-content">
                           <div className="station-details">

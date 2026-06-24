@@ -240,7 +240,7 @@ export const TrainDetails = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      <AdInterstitial pageKey="trainDetails" trainNumber={train.trainNumber} />
+      <AdInterstitial pageKey="trainDetails" instanceId={train.id} trainNumber={train.trainNumber} />
       {/* Header Panel */}
       <div className="glass-panel" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -297,7 +297,7 @@ export const TrainDetails = () => {
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <Navigation size={16} /> {t('trackLive')}
+              <Navigation size={16} /> {isRTL ? 'رحلة اليوم' : "Today's Trip"}
             </button>
           )}
 
@@ -342,8 +342,8 @@ export const TrainDetails = () => {
 
           {train.routeStops && train.routeStops.length > 0 ? (
             <div className="trip-timeline">
-              {train.routeStops.map((stop) => (
-                <div key={stop.stopId} className="timeline-item">
+              {train.routeStops.map((stop, index) => (
+                <div key={`${stop.stopId}-${stop.stopOrder || index}`} className="timeline-item">
                   <div className="timeline-node"></div>
                   <div className="timeline-content">
                     <div className="station-details">
