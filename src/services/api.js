@@ -5,6 +5,8 @@ class ApiClient {
     this.accessToken = localStorage.getItem('access_token') || null;
     this.refreshToken = localStorage.getItem('refresh_token') || null;
     this.refreshPromise = null;
+    this._inflightRequests = new Map();
+    this._cache = new Map();
   }
 
   setTokens(accessToken, refreshToken) {
@@ -26,19 +28,43 @@ class ApiClient {
     this.setTokens(null, null);
   }
 
+  async requestWithRetry(endpoint, options, retries = 3) {
+    const method = options.method || 'GET';
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await this._doRequest(endpoint, options);
+      } catch (err) {
+        if (i === retries - 1 || method !== 'GET') throw err;
+        // Exponential backoff
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+      }
+    }
+  }
+
   async request(endpoint, options = {}) {
-    let url = `${BASE_URL}/${endpoint.replace(/^\//, '')}`;
+    const method = options.method || 'GET';
+    const cacheKey = `${method}:${endpoint}`;
+
+    // Request Deduplication for GET requests
+    if (method === 'GET' && this._inflightRequests.has(cacheKey)) {
+      return this._inflightRequests.get(cacheKey);
+    }
+
+    const promise = this.requestWithRetry(endpoint, options);
     
-    // Add cache-busting query parameter for GET requests
-    if (options.method === 'GET' || !options.method) {
-      const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}_t=${Date.now()}`;
+    if (method === 'GET') {
+      this._inflightRequests.set(cacheKey, promise);
+      promise.finally(() => this._inflightRequests.delete(cacheKey));
     }
     
-    // Add default headers
+    return promise;
+  }
+
+  async _doRequest(endpoint, options = {}) {
+    const url = `${BASE_URL}/${endpoint.replace(/^\//, '')}`;
+    
+    // Add default headers without forcing no-cache to allow browser/proxy caching
     options.headers = {
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
       ...options.headers,
     };
 
@@ -50,6 +76,10 @@ class ApiClient {
       options.headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    options.signal = controller.signal;
+
     let response;
     try {
       response = await fetch(url, options);
@@ -58,6 +88,8 @@ class ApiClient {
         this.logError('Frontend', url, `Network/Fetch error: ${err.message}`, err.message, err.stack).catch(() => {});
       }
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     // If unauthorized, attempt token refresh
@@ -115,6 +147,16 @@ class ApiClient {
     })();
 
     return this.refreshPromise;
+  }
+
+  async getCached(key, fetcher, ttlMs = 5 * 60 * 1000) {
+    const cached = this._cache.get(key);
+    if (cached && Date.now() - cached.time < ttlMs) {
+      return cached.data;
+    }
+    const data = await fetcher();
+    this._cache.set(key, { data, time: Date.now() });
+    return data;
   }
 
   // Auth
@@ -213,7 +255,7 @@ class ApiClient {
 
 
   async getStops() {
-    return this.request('api/trains/stops');
+    return this.getCached('stops', () => this.request('api/trains/stops'), 10 * 60 * 1000);
   }
 
   // Train Follow Plans
@@ -296,15 +338,15 @@ class ApiClient {
   }
 
   async adminGetRailwayPaths() {
-    return this.request('api/admin/railway-paths');
+    return this.getCached('adminRailwayPaths', () => this.request('api/admin/railway-paths'), 10 * 60 * 1000);
   }
 
   async getStatusTags() {
-    return this.request('api/status-tags');
+    return this.getCached('statusTags', () => this.request('api/status-tags'));
   }
 
   async getCrowdLevels() {
-    return this.request('api/crowd-levels');
+    return this.getCached('crowdLevels', () => this.request('api/crowd-levels'));
   }
 
   // Profile
@@ -356,11 +398,11 @@ class ApiClient {
   }
 
   async getCities() {
-    return this.request('api/lookups/cities');
+    return this.getCached('cities', () => this.request('api/lookups/cities'), 10 * 60 * 1000);
   }
 
   async getGovernorates() {
-    return this.request('api/lookups/governorates');
+    return this.getCached('governorates', () => this.request('api/lookups/governorates'), 10 * 60 * 1000);
   }
 
   // Lost & Found
@@ -492,25 +534,31 @@ class ApiClient {
   }
 
   // Stop/City/Gov CRUD
-  async adminGetStops() { return this.request('api/admin/stops'); }
+  async adminGetStops() { return this.getCached('adminStops', () => this.request('api/admin/stops'), 5 * 60 * 1000); }
   async adminCreateStop(data) {
+    this._cache.delete('adminStops'); this._cache.delete('stops');
     return this.request('api/admin/stops', { method: 'POST', body: JSON.stringify(data) });
   }
   async adminUpdateStop(id, data) {
+    this._cache.delete('adminStops'); this._cache.delete('stops');
     return this.request(`api/admin/stops/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   }
   async adminDeleteStop(id) {
+    this._cache.delete('adminStops'); this._cache.delete('stops');
     return this.request(`api/admin/stops/${id}`, { method: 'DELETE' });
   }
 
-  async adminGetCities() { return this.request('api/admin/cities'); }
+  async adminGetCities() { return this.getCached('adminCities', () => this.request('api/admin/cities'), 5 * 60 * 1000); }
   async adminCreateCity(data) {
+    this._cache.delete('adminCities'); this._cache.delete('cities');
     return this.request('api/admin/cities', { method: 'POST', body: JSON.stringify(data) });
   }
   async adminUpdateCity(id, data) {
+    this._cache.delete('adminCities'); this._cache.delete('cities');
     return this.request(`api/admin/cities/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   }
   async adminDeleteCity(id) {
+    this._cache.delete('adminCities'); this._cache.delete('cities');
     return this.request(`api/admin/cities/${id}`, { method: 'DELETE' });
   }
 
@@ -552,6 +600,9 @@ class ApiClient {
   async adminGetSystemSettings() { return this.request('api/admin/system-settings'); }
   async adminUpdateSystemSettings(data) {
     return this.request('api/admin/system-settings', { method: 'PUT', body: JSON.stringify(data) });
+  }
+  async getSystemSettingsPublic() {
+    return this.request('api/settings');
   }
   async getAdSettings() {
     return this.request('api/ad-settings');

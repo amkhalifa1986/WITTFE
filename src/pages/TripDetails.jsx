@@ -5,8 +5,10 @@ import signalrService from '../services/signalrService';
 import { useAuth } from '../context/authContext';
 import { useLanguage } from '../context/LanguageContext';
 import { usePopup } from '../context/PopupContext';
+import { useSettings } from '../context/SettingsContext';
 import { AdInterstitial } from '../components/AdInterstitial';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   Train, 
   MapPin, 
@@ -31,6 +33,8 @@ export const TripDetails = () => {
   const { user } = useAuth();
   const { t, isRTL } = useLanguage();
   const { toast, alert, confirm } = usePopup();
+  const { settings } = useSettings();
+  const gpsTrackingEnabled = settings?.gpsTrackingEnabled !== false;
   
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -130,19 +134,20 @@ export const TripDetails = () => {
 
         let updatedStatus = prevTrip.status;
         let shouldRefresh = false;
+        let matched = null;
         if (!update.authorId && update.statusTag) {
           const validStatuses = ['Scheduled', 'Departed', 'InTransit', 'Arrived', 'Cancelled', 'Delayed'];
-          const matched = validStatuses.find(s => s.toLowerCase() === update.statusTag.toLowerCase());
+          matched = validStatuses.find(s => s.toLowerCase() === update.statusTag.toLowerCase());
           if (matched) {
             updatedStatus = matched;
             shouldRefresh = true;
           }
         }
 
-        if (shouldRefresh) {
+        if (shouldRefresh && (matched === 'Departed' || matched === 'Arrived')) {
           setTimeout(() => {
             fetchTripDetails();
-          }, 100);
+          }, 500);
         }
 
         return {
@@ -164,40 +169,59 @@ export const TripDetails = () => {
     };
   }, [id]);
 
-  // Leaflet Map Rendering & Updates
+  // 1. Map Initialization
   useEffect(() => {
-    if (!trip) return;
-
-    if (!mapInstanceRef.current && mapRef.current) {
-      if (mapRef.current._leaflet_id) {
-        return; // Avoid double initialization error
+    if (!gpsTrackingEnabled || !mapRef.current || !trip) {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
       }
+      trainMarkerRef.current = null;
+      stopMarkersRef.current = [];
+      polylineRef.current = null;
+      setHasSetInitialBounds(false);
+      setMapReady(false);
+      return;
+    }
 
+    if (!mapInstanceRef.current) {
       mapInstanceRef.current = L.map(mapRef.current, {
         zoomControl: true,
         scrollWheelZoom: true
       }).setView([26.8206, 30.8025], 6);
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 20
       }).addTo(mapInstanceRef.current);
 
-      // Disable auto-centering when user manually pans/zooms the map
       mapInstanceRef.current.on('movestart', (e) => {
         if (e.originalEvent) {
           setIsAutoCentering(false);
         }
       });
+
       setMapReady(true);
     }
 
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      trainMarkerRef.current = null;
+      stopMarkersRef.current = [];
+      polylineRef.current = null;
+      setHasSetInitialBounds(false);
+      setMapReady(false);
+    };
+  }, [id, gpsTrackingEnabled, trip]);
+
+  // 2. Static Route Polyline and Stops
+  useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map) return;
-    map.invalidateSize();
+    if (!map || !trip) return;
 
-
-    // Drawing route polyline — only use routePath from the backend (no runtime straight-line fallback)
     const polylineCoords = (trip.routePath && trip.routePath.length > 0) ? trip.routePath : null;
 
     if (polylineCoords && polylineCoords.length > 1) {
@@ -213,23 +237,20 @@ export const TripDetails = () => {
       } else {
         polylineRef.current.setLatLngs(polylineCoords);
       }
-    } else {
-      if (polylineRef.current) {
-        polylineRef.current.remove();
-        polylineRef.current = null;
-      }
+    } else if (polylineRef.current) {
+      polylineRef.current.remove();
+      polylineRef.current = null;
     }
 
-    // 2. Plot stops as dots on the track
-    if (stopMarkersRef.current.length === 0 && trip.routeStops) {
-      trip.routeStops.forEach(stop => {
-        const stopIcon = L.divIcon({
-          className: 'custom-stop-marker',
-          html: `<div class="stop-dot"></div>`,
-          iconSize: [12, 12],
-          iconAnchor: [6, 6]
-        });
+    if (trip.routeStops && stopMarkersRef.current.length === 0) {
+      const stopIcon = L.divIcon({
+        className: 'custom-stop-marker',
+        html: `<div class="stop-dot"></div>`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+      });
 
+      trip.routeStops.forEach(stop => {
         const marker = L.marker([stop.latitude, stop.longitude], { icon: stopIcon })
           .addTo(map)
           .bindPopup(`
@@ -238,64 +259,52 @@ export const TripDetails = () => {
               <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">${isRTL ? stop.stopNameEn : stop.stopNameAr} (${stop.stopCode})</p>
             </div>
           `);
-        
         stopMarkersRef.current.push(marker);
       });
     }
 
-    // 3. PlotSnapped train marker & center view
-    if (liveTelemetry && liveTelemetry.snappedLatitude && liveTelemetry.snappedLongitude) {
-      const pos = [liveTelemetry.snappedLatitude, liveTelemetry.snappedLongitude];
-      const markerUrl = trip.markerPngUrl ? `http://localhost:5245${trip.markerPngUrl}` : '/train-marker.png';
-      const trainIcon = L.divIcon({
-        className: 'custom-train-marker-pin',
-        html: `<div class="train-pulse-pin"></div><img src="${markerUrl}" style="width: 56px; height: 56px; display: block; object-fit: contain;" alt="Train Pin" />`,
-        iconSize: [56, 56],
-        iconAnchor: [28, 56],
-        popupAnchor: [0, -56]
-      });
-
-      if (!trainMarkerRef.current) {
-        trainMarkerRef.current = L.marker(pos, { icon: trainIcon })
-          .addTo(map)
-          .bindPopup(`
-            <div style="font-family: Outfit, sans-serif; padding: 4px; text-align: center;">
-              <h4 style="margin: 0; color: var(--text-primary); font-size: 0.95rem;">Train ${trip.trainNumber}</h4>
-              <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">Speed: ${(liveTelemetry.speed || 0).toFixed(1)} km/h</p>
-            </div>
-          `);
-      } else {
-        trainMarkerRef.current.setLatLng(pos);
-        trainMarkerRef.current.setIcon(trainIcon);
-        trainMarkerRef.current.setPopupContent(`
-          <div style="font-family: Outfit, sans-serif; padding: 4px; text-align: center;">
-            <h4 style="margin: 0; color: var(--text-primary); font-size: 0.95rem;">Train ${trip.trainNumber}</h4>
-            <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">Speed: ${(liveTelemetry.speed || 0).toFixed(1)} km/h</p>
-          </div>
-        `);
-      }
-    } else {
-      // Clean up train marker from the map if it was previously rendered
-      if (trainMarkerRef.current) {
-        trainMarkerRef.current.remove();
-        trainMarkerRef.current = null;
-      }
-    }
-
-    // Set initial bounds of map view to fit either the polyline route or route stops
     if (!hasSetInitialBounds) {
       if (polylineRef.current) {
         map.fitBounds(polylineRef.current.getBounds(), { padding: [40, 40] });
         setHasSetInitialBounds(true);
       } else if (trip.routeStops && trip.routeStops.length > 0) {
         const coords = trip.routeStops.map(s => [s.latitude, s.longitude]);
-        if (coords.length > 0) {
-          map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
-          setHasSetInitialBounds(true);
-        }
+        map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
+        setHasSetInitialBounds(true);
       }
     }
-  }, [trip, liveTelemetry, hasSetInitialBounds, loading]);
+  }, [trip?.routePath, trip?.routeStops, mapReady, hasSetInitialBounds, isRTL]);
+
+  // 3. Live Train Marker
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !trip) return;
+
+    if (liveTelemetry && liveTelemetry.snappedLatitude && liveTelemetry.snappedLongitude) {
+      const pos = [liveTelemetry.snappedLatitude, liveTelemetry.snappedLongitude];
+      
+      if (!trainMarkerRef.current) {
+        const markerUrl = trip.markerPngUrl ? `http://localhost:5245${trip.markerPngUrl}` : '/train-marker.png';
+        const trainIcon = L.divIcon({
+          className: 'custom-train-marker-pin',
+          html: `<div class="train-pulse-pin"></div><img src="${markerUrl}" style="width: 56px; height: 56px; display: block; object-fit: contain;" alt="Train Pin" />`,
+          iconSize: [56, 56],
+          iconAnchor: [28, 56],
+          popupAnchor: [0, -56]
+        });
+
+        trainMarkerRef.current = L.marker(pos, { icon: trainIcon }).addTo(map);
+      }
+
+      trainMarkerRef.current.setLatLng(pos);
+      trainMarkerRef.current.setPopupContent(`
+        <div style="font-family: Outfit, sans-serif; padding: 4px; text-align: center;">
+          <h4 style="margin: 0; color: var(--text-primary); font-size: 0.95rem;">Train ${trip.trainNumber}</h4>
+          <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">Speed: ${(liveTelemetry.speed || 0).toFixed(1)} km/h</p>
+        </div>
+      `);
+    }
+  }, [liveTelemetry?.snappedLatitude, liveTelemetry?.snappedLongitude, liveTelemetry?.speed, trip?.trainNumber, trip?.markerPngUrl, mapReady]);
 
   // Handle auto-centering viewport separately to prevent non-location updates from triggering recenter
   useEffect(() => {
@@ -306,29 +315,33 @@ export const TripDetails = () => {
       const pos = [liveTelemetry.snappedLatitude, liveTelemetry.snappedLongitude];
       map.setView(pos, 15);
     }
-  }, [liveTelemetry, isAutoCentering, mapReady]);
+  }, [liveTelemetry?.snappedLatitude, liveTelemetry?.snappedLongitude, isAutoCentering, mapReady]);
 
-  // Cleanup Map on Unmount
-  useEffect(() => {
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-      trainMarkerRef.current = null;
-      stopMarkersRef.current = [];
-      polylineRef.current = null;
-    };
-  }, []);
+  // Map cleanup is now handled in the main initialization effect above
 
   // Passenger GPS Telemetry Broadcast Interval
   useEffect(() => {
     let watchId = null;
     let intervalId = null;
 
-    if (passengerMode) {
+    if (passengerMode && gpsTrackingEnabled) {
       if (navigator.geolocation) {
         let lastCoords = null;
+        let lastSentCoords = null;
+
+        const haversineDistance = (coords1, coords2) => {
+          const toRad = x => (x * Math.PI) / 180;
+          const R = 6371e3; // Earth radius in meters
+          const dLat = toRad(coords2.latitude - coords1.latitude);
+          const dLon = toRad(coords2.longitude - coords1.longitude);
+          const lat1 = toRad(coords1.latitude);
+          const lat2 = toRad(coords2.latitude);
+
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          return R * c;
+        };
         
         watchId = navigator.geolocation.watchPosition(
           (pos) => {
@@ -346,6 +359,11 @@ export const TripDetails = () => {
 
         intervalId = setInterval(async () => {
           if (lastCoords) {
+            if (lastSentCoords) {
+              const dist = haversineDistance(lastCoords, lastSentCoords);
+              if (dist < 50) return; // Skip if haven't moved > 50 meters
+            }
+
             try {
               const res = await api.submitTelemetry(
                 id, 
@@ -356,12 +374,13 @@ export const TripDetails = () => {
               
               if (res.isSuccess && res.data) {
                 setLiveTelemetry(res.data);
+                lastSentCoords = { ...lastCoords };
               }
             } catch (err) {
               console.error('Failed to submit passenger telemetry:', err);
             }
           }
-        }, 10000);
+        }, 20000); // 20 seconds
       } else {
         toast(t('geolocationNotSupported'), 'error');
         setPassengerMode(false);
@@ -470,7 +489,7 @@ export const TripDetails = () => {
       }
     };
 
-    if (shareLocation) {
+    if (shareLocation && gpsTrackingEnabled) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -1004,16 +1023,22 @@ export const TripDetails = () => {
       )}
 
       {/* Main Content Layout Grid */}
-      <div className="dashboard-grid trip-details-grid">
+      <div 
+        className={`dashboard-grid trip-details-grid ${!gpsTrackingEnabled ? 'gps-disabled' : ''}`}
+        style={!gpsTrackingEnabled ? { gridTemplateColumns: '1fr 1fr' } : {}}
+      >
         {/* Left Side: Map & Timeline side-by-side */}
         <div className="glass-panel" style={{ padding: '32px' }}>
-          <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Navigation size={20} color="var(--accent-primary)" /> {t('liveRouteTracking')}
-          </h3>
-
-          <div className="tracking-workspace" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {gpsTrackingEnabled && (
+            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Navigation size={20} color="var(--accent-primary)" /> {t('liveRouteTracking')}
+            </h3>
+          )}
+          
+          <div className="tracking-workspace" style={{ gridTemplateColumns: gpsTrackingEnabled ? '1fr 1fr' : '1fr' }}>
             {/* Column 1: Map and Controls */}
-            <div>
+            {gpsTrackingEnabled && (
+              <div>
               {/* Map Container Wrapper */}
               <div style={{ position: 'relative', marginBottom: '20px' }}>
                 <div ref={mapRef} className="map-container" style={{ height: '580px', marginBottom: 0 }}>
@@ -1147,6 +1172,7 @@ export const TripDetails = () => {
                 </div>
               )}
             </div>
+            )}
 
             {/* Column 2: Stops Timeline Sequence (Scrollable) */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1270,16 +1296,18 @@ export const TripDetails = () => {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={shareLocation}
-                        onChange={(e) => setShareLocation(e.target.checked)}
-                        style={{ accentColor: 'var(--accent-secondary)' }}
-                        disabled={submittingUpdate}
-                      />
-                      {t('shareGps')}
-                    </label>
+                    {gpsTrackingEnabled && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={shareLocation}
+                          onChange={(e) => setShareLocation(e.target.checked)}
+                          style={{ accentColor: 'var(--accent-secondary)' }}
+                          disabled={submittingUpdate}
+                        />
+                        {t('shareGps')}
+                      </label>
+                    )}
 
                     <button 
                       type="submit" 
@@ -1382,7 +1410,7 @@ export const TripDetails = () => {
                             </span>
                           )}
                         </div>
-                        {update.latitude && update.longitude && (
+                        {gpsTrackingEnabled && update.latitude && update.longitude && (
                           <a 
                             href={`https://maps.google.com/?q=${update.latitude},${update.longitude}`}
                             target="_blank"

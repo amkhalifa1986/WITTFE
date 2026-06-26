@@ -297,7 +297,7 @@ export const TrainDetails = () => {
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
-              <Navigation size={16} /> {isRTL ? 'رحلة اليوم' : "Today's Trip"}
+              <Navigation size={16} /> Today's Trip - رحلة اليوم
             </button>
           )}
 

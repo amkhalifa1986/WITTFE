@@ -286,7 +286,9 @@ export const DashboardNew = () => {
           ) : (
             <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
               {/* Slides */}
-              {slides.map((slide, idx) => (
+              {slides.map((slide, idx) => {
+                if (Math.abs(idx - activeSlideIndex) > 1 && !(idx === 0 && activeSlideIndex === slides.length - 1) && !(idx === slides.length - 1 && activeSlideIndex === 0)) return null;
+                return (
                 <div
                   key={slide.id || idx}
                   style={{
@@ -307,6 +309,7 @@ export const DashboardNew = () => {
                   <img
                     src={api.resolveImageUrl(slide.imagePath)}
                     alt=""
+                    loading={idx === 0 ? "eager" : "lazy"}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -334,6 +337,7 @@ export const DashboardNew = () => {
                   <img
                     src={api.resolveImageUrl(slide.imagePath)}
                     alt={isRTL ? slide.captionAr : slide.captionEn}
+                    loading={idx === 0 ? "eager" : "lazy"}
                     style={{
                       position: 'relative',
                       width: '100%',
@@ -429,7 +433,7 @@ export const DashboardNew = () => {
                     )
                   )}
                 </div>
-              ))}
+              )})}
 
               {/* Navigation Arrows */}
               {slides.length > 1 && (
@@ -739,54 +743,6 @@ export const DashboardNew = () => {
       </div>
 
 
-
-      <style>{`
-        .dashboard-grid-container {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 450px 350px;
-          gap: 32px;
-        }
-        .gallery-container-cell {
-          grid-column: 1;
-          grid-row: 1;
-        }
-        .live-feed-container-cell {
-          grid-column: 1;
-          grid-row: 2;
-        }
-        .active-trips-container-cell {
-          grid-column: 2;
-          grid-row: 1 / span 2;
-        }
-        @media (max-width: 1024px) {
-          .dashboard-grid-container {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            height: auto !important;
-          }
-          .gallery-container-cell {
-            height: 350px !important;
-            grid-column: auto;
-            grid-row: auto;
-          }
-          .live-feed-container-cell, .active-trips-container-cell {
-            height: auto !important;
-            grid-column: auto;
-            grid-row: auto;
-          }
-          .active-trips-container-cell {
-            order: 2;
-          }
-          .live-feed-container-cell {
-            order: 3;
-          }
-          .gallery-container-cell {
-            order: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 };

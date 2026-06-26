@@ -29,12 +29,24 @@ class SignalRService {
         this.connection = new signalR.HubConnectionBuilder()
           .withUrl('http://localhost:5245/hubs/trip', {
             accessTokenFactory: () => api.accessToken,
-            skipNegotiation: false,
-            transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling
+            skipNegotiation: true, // Only if WebSockets is the only transport
+            transport: signalR.HttpTransportType.WebSockets
           })
-          .withAutomaticReconnect()
-          .configureLogging(signalR.LogLevel.Information)
+          .withAutomaticReconnect({
+            nextRetryDelayInMilliseconds: (retryContext) => {
+              const baseDelay = Math.min(30000, 1000 * Math.pow(2, retryContext.previousRetryCount));
+              const jitter = Math.random() * 2000;
+              return baseDelay + jitter;
+            }
+          })
+          .withServerTimeout(30000)
+          .withKeepAliveInterval(15000)
+          .configureLogging(signalR.LogLevel.Warning) // Reduce logging noise
           .build();
+          
+        this.connection.onreconnecting(() => console.warn('SignalR reconnecting...'));
+        this.connection.onreconnected(() => console.log('SignalR reconnected'));
+        this.connection.onclose(() => console.error('SignalR disconnected'));
 
         this.connection.on('ReceiveUpdate', (update) => {
           this.updateListeners.forEach(listener => listener(update));
