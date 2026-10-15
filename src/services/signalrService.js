@@ -1,3 +1,4 @@
+import { SIGNALR_HUB_URL } from '../config';
 import * as signalR from '@microsoft/signalr';
 import api from './api';
 
@@ -27,7 +28,7 @@ class SignalRService {
     this.connectingPromise = (async () => {
       if (!this.connection) {
         this.connection = new signalR.HubConnectionBuilder()
-          .withUrl('http://localhost:5245/hubs/trip', {
+          .withUrl(SIGNALR_HUB_URL, {
             accessTokenFactory: () => api.accessToken,
             skipNegotiation: true, // Only if WebSockets is the only transport
             transport: signalR.HttpTransportType.WebSockets

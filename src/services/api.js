@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5245';
+import { API_BASE_URL as BASE_URL } from '../config';
 
 class ApiClient {
   constructor() {

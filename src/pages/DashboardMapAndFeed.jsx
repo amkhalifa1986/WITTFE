@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Clock } from 'lucide-react';
@@ -233,7 +234,7 @@ export const DashboardMapAndFeed = ({ statsData, api, isRTL }) => {
       if (tele && tele.snappedLatitude && tele.snappedLongitude) {
         const pos = [tele.snappedLatitude, tele.snappedLongitude];
         
-        const markerUrl = trip.markerPngUrl ? `http://localhost:5245${trip.markerPngUrl}` : '/train-marker.png';
+        const markerUrl = trip.markerPngUrl ? `${API_BASE_URL}${trip.markerPngUrl}` : '/train-marker.png';
         const trainIcon = L.divIcon({
           className: 'custom-train-marker-pin',
           html: `<div class="train-pulse-pin" style="background: rgba(99, 102, 241, 0.45)"></div><img src="${markerUrl}" style="width: 44px; height: 44px; display: block; object-fit: contain;" alt="Train Pin" />`,

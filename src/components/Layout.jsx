@@ -1,3 +1,4 @@
+import { ADMIN_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
@@ -121,7 +122,7 @@ export const Layout = ({ children }) => {
 
   const isAdmin = user && (user.role === 1 || user.role === 'Admin');
   if (isAdmin) {
-    navItems.push({ path: 'http://localhost:5174/', label: t('adminPanel'), icon: ShieldAlert, external: true });
+    navItems.push({ path: ADMIN_URL, label: t('adminPanel'), icon: ShieldAlert, external: true });
   }
 
   const getInitials = (name) => {
