@@ -20,7 +20,8 @@ import {
   Sun,
   Moon,
   Globe,
-  Bell
+  Bell,
+  Gamepad2
 } from 'lucide-react';
 
 export const Layout = ({ children }) => {
@@ -117,6 +118,7 @@ export const Layout = ({ children }) => {
     { path: '/search', label: t('searchTrains'), icon: SearchIcon },
     { path: '/lost-found', label: t('lostFound'), icon: MessageSquare },
     { path: '/suggestions', label: t('suggestions'), icon: Lightbulb },
+    { path: '/sudoku', label: t('games'), icon: Gamepad2 },
   ];
 
   const isAdmin = user && (user.role === 1 || user.role === 'Admin');
@@ -144,26 +146,30 @@ export const Layout = ({ children }) => {
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="navbar-menu">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <li key={item.path} className={`navbar-item ${isActive ? 'active' : ''}`}>
-                {item.external ? (
-                  <a href={item.path} target="_blank" rel="noopener noreferrer">
-                    <Icon size={16} />
-                    <span>{item.label}</span>
-                  </a>
-                ) : (
-                  <Link to={item.path}>
-                    <Icon size={16} />
-                    <span>{item.label}</span>
-                  </Link>
-                )}
-              </li>
-            );
-          })}
+        <nav aria-label="Main Navigation">
+          <ul className="navbar-menu">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.path === '/' 
+                ? location.pathname === '/' 
+                : location.pathname.startsWith(item.path);
+              return (
+                <li key={item.path} className={`navbar-item ${isActive ? 'active' : ''}`}>
+                  {item.external ? (
+                    <a href={item.path} target="_blank" rel="noopener noreferrer">
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </a>
+                  ) : (
+                    <Link to={item.path}>
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
         {/* Action Controls & User Dropdown */}
@@ -375,7 +381,9 @@ export const Layout = ({ children }) => {
           <ul className="mobile-menu-links">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = item.path === '/' 
+                ? location.pathname === '/' 
+                : location.pathname.startsWith(item.path);
               return (
                 <li key={item.path} className={`mobile-nav-item ${isActive ? 'active' : ''}`}>
                   {item.external ? (

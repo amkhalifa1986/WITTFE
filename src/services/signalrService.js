@@ -26,8 +26,9 @@ class SignalRService {
 
     this.connectingPromise = (async () => {
       if (!this.connection) {
+        const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080';
         this.connection = new signalR.HubConnectionBuilder()
-          .withUrl('http://localhost:5245/hubs/trip', {
+          .withUrl(`${BASE_URL}/hubs/trip`, {
             accessTokenFactory: () => api.accessToken,
             skipNegotiation: true, // Only if WebSockets is the only transport
             transport: signalR.HttpTransportType.WebSockets

@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePopup } from '../context/PopupContext';
 import api from '../services/api';
 import { AdInterstitial } from '../components/AdInterstitial';
-import { User, Mail, FileText, Camera, History, Train, Clock, X, Trash2, Upload, Loader } from 'lucide-react';
+import { User, Mail, FileText, Camera, History, Train, Clock, X, Trash2, Upload, Loader, Award } from 'lucide-react';
 
 export const Profile = () => {
   const { user, updateUserProfile } = useAuth();
@@ -21,6 +21,10 @@ export const Profile = () => {
   
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+
+  const [pointsSummary, setPointsSummary] = useState(null);
+  const [loadingPoints, setLoadingPoints] = useState(true);
+  const [pointsViewMode, setPointsViewMode] = useState('type'); // 'type' | 'month'
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -56,6 +60,60 @@ export const Profile = () => {
   useEffect(() => {
     fetchFollowPlansData();
   }, []);
+
+  useEffect(() => {
+    const fetchPoints = async () => {
+      try {
+        const res = await api.getMyPoints();
+        setPointsSummary(res.data || null);
+      } catch (err) {
+        console.error('Failed to load points summary', err);
+      } finally {
+        setLoadingPoints(false);
+      }
+    };
+    fetchPoints();
+  }, []);
+
+  const getPointsBreakdown = () => {
+    if (!pointsSummary || !pointsSummary.logs) return { trips: 0, stops: 0, trains: 0 };
+    let trips = 0;
+    let stops = 0;
+    let trains = 0;
+    pointsSummary.logs.forEach(log => {
+      const code = log.actionCode;
+      if (code === 'StartTrip' || code === 'EndTrip' || code === 'PostUpdate' || code === 'ThankReport') {
+        trips += log.pointsAwarded;
+      } else if (code === 'AcceptedStopSuggestion') {
+        stops += log.pointsAwarded;
+      } else if (code === 'AcceptedTrainSuggestion') {
+        trains += log.pointsAwarded;
+      }
+    });
+    return { trips, stops, trains };
+  };
+
+  const getMonthlyPointsBreakdown = () => {
+    if (!pointsSummary || !pointsSummary.logs) return [];
+    const monthsData = {};
+    pointsSummary.logs.forEach(log => {
+      const date = new Date(log.createdAt);
+      const year = date.getFullYear();
+      const monthIndex = date.getMonth();
+      const yearShort = year.toString().slice(-2);
+      const monthNamesEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNamesAr = ['يناير', 'فبراير', 'مارس', 'إبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const monthLabel = isRTL
+        ? `${monthNamesAr[monthIndex]} ${year}`
+        : `${monthNamesEn[monthIndex]} '${yearShort}`;
+      const sortKey = year * 100 + monthIndex;
+      if (!monthsData[sortKey]) {
+        monthsData[sortKey] = { label: monthLabel, points: 0, sortKey };
+      }
+      monthsData[sortKey].points += log.pointsAwarded;
+    });
+    return Object.values(monthsData).sort((a, b) => b.sortKey - a.sortKey);
+  };
 
   const handleUnfollowUpcomingTrip = async (tripId) => {
     const isConfirmed = await confirm(t('unfollowTripConfirm'));
@@ -338,6 +396,91 @@ export const Profile = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Points Dashboard */}
+      <div className="glass-panel" style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <h3 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+          <Award size={22} color="var(--accent-primary)" /> {t('pointsDashboard')}
+        </h3>
+
+        {/* Filter Toggle Buttons */}
+        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+          <button
+            type="button"
+            onClick={() => setPointsViewMode('type')}
+            className={`btn btn-sm ${pointsViewMode === 'type' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ margin: 0, padding: '8px 16px', fontSize: '0.8rem', flex: 1, border: pointsViewMode === 'type' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)', background: pointsViewMode === 'type' ? 'var(--accent-primary)' : 'rgba(120,120,120,0.02)' }}
+          >
+            🏷️ {isRTL ? 'بالنوع' : 'By Type'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPointsViewMode('month')}
+            className={`btn btn-sm ${pointsViewMode === 'month' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ margin: 0, padding: '8px 16px', fontSize: '0.8rem', flex: 1, border: pointsViewMode === 'month' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)', background: pointsViewMode === 'month' ? 'var(--accent-primary)' : 'rgba(120,120,120,0.02)' }}
+          >
+            📅 {isRTL ? 'بالشهر' : 'By Month'}
+          </button>
+        </div>
+
+        {loadingPoints ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '150px' }}>
+            <Clock className="animate-spin" size={24} color="var(--accent-primary)" />
+          </div>
+        ) : pointsViewMode === 'month' ? (
+          /* Month View */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              {isRTL ? 'النقاط المكتسبة شهرياً' : 'Points Gained Monthly'}
+            </h4>
+            {getMonthlyPointsBreakdown().length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', margin: '20px 0 0 0' }}>
+                {isRTL ? 'لا يوجد نقاط مكتسبة بعد.' : 'No points earned yet.'}
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {getMonthlyPointsBreakdown().map((monthItem) => (
+                  <div key={monthItem.sortKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: '12px', background: 'rgba(120, 120, 120, 0.02)', border: '1px solid var(--border-color)' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{monthItem.label}</span>
+                    <strong style={{ fontSize: '1.15rem', color: 'var(--accent-primary)', fontFamily: 'Outfit' }}>+{monthItem.points}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Type View */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              {t('pointsBreakdown')}
+            </h4>
+            {/* Trips Posts & Thanks */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px 16px', borderRadius: '12px', background: 'rgba(120, 120, 120, 0.02)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{t('tripsPostsAndThanks')}</span>
+                <strong style={{ fontSize: '1.1rem', color: 'var(--accent-primary)', fontFamily: 'Outfit' }}>+{getPointsBreakdown().trips}</strong>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('tripsPointsDesc')}</span>
+            </div>
+            {/* Suggestion for Stops */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px 16px', borderRadius: '12px', background: 'rgba(120, 120, 120, 0.02)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{t('suggestionForStops')}</span>
+                <strong style={{ fontSize: '1.1rem', color: 'var(--accent-secondary)', fontFamily: 'Outfit' }}>+{getPointsBreakdown().stops}</strong>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('stopsPointsDesc')}</span>
+            </div>
+            {/* Suggestion for Trains */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '14px 16px', borderRadius: '12px', background: 'rgba(120, 120, 120, 0.02)', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>{t('suggestionForTrains')}</span>
+                <strong style={{ fontSize: '1.1rem', color: 'var(--accent-primary)', fontFamily: 'Outfit' }}>+{getPointsBreakdown().trains}</strong>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{t('trainsPointsDesc')}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="dashboard-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>

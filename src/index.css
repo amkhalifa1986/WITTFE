@@ -326,6 +326,12 @@ html[dir="rtl"] .top-navbar {
   align-items: center;
   gap: 8px;
   list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-item {
+  list-style: none;
 }
 
 .navbar-item a {
@@ -776,6 +782,19 @@ html[dir="rtl"] .user-profile-trigger {
   border-color: var(--success);
   box-shadow: 0 0 12px var(--success);
   animation: pulseGlow 1.5s infinite;
+}
+
+.timeline-item.current .timeline-content {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-inline-start: -16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="light"] .timeline-item.current .timeline-content {
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .timeline-content {

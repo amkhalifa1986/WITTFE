@@ -19,6 +19,10 @@ const LostFound = React.lazy(() => import('./pages/LostFound'));
 const Suggestions = React.lazy(() => import('./pages/Suggestions'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Admin = React.lazy(() => import('./pages/Admin'));
+const AdminUserDetails = React.lazy(() => import('./pages/AdminUserDetails'));
+const Sudoku = React.lazy(() => import('./pages/Sudoku'));
+
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)' }}>
@@ -63,6 +67,7 @@ function App() {
                       {/* Public Authentication Routes */}
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
 
                       {/* Protected Application Routes */}
                       <Route 
@@ -122,10 +127,26 @@ function App() {
                         } 
                       />
                       <Route 
+                        path="/sudoku" 
+                        element={
+                          <ProtectedRoute>
+                            <Sudoku />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route 
                         path="/admin" 
                         element={
                           <ProtectedRoute adminOnly>
                             <Admin />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/admin/user/:userId" 
+                        element={
+                          <ProtectedRoute adminOnly>
+                            <AdminUserDetails />
                           </ProtectedRoute>
                         } 
                       />

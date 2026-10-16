@@ -242,46 +242,69 @@ export const TrainDetails = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <AdInterstitial pageKey="trainDetails" instanceId={train.id} trainNumber={train.trainNumber} />
       {/* Header Panel */}
-      <div className="glass-panel" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '16px',
-            background: 'var(--accent-gradient)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.5rem',
-            fontWeight: 800,
-            fontFamily: 'Outfit'
+      <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', borderRadius: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: '0', alignSelf: 'stretch', flexWrap: 'wrap' }}>
+          {train.imageUrl ? (
+            <img 
+              src={`http://localhost:5245${train.imageUrl}`} 
+              alt="Train Type"
+              style={{
+                width: '222px',
+                height: '130px',
+                objectFit: 'cover',
+                borderRight: isRTL ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderLeft: isRTL ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+              }}
+            />
+          ) : null}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '24px', 
+            padding: isRTL 
+              ? `32px 32px 32px ${train.imageUrl ? '32px' : '32px'}` 
+              : `32px 32px 32px ${train.imageUrl ? '32px' : '32px'}` 
           }}>
-            {train.trainNumber}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {isRTL ? train.nameAr : train.nameEn}
-              </h1>
-              {todayTrip ? (
-                <span className="badge badge-on-time">{t('activeLive')}</span>
-              ) : (
-                <span className="badge badge-info">{t('scheduled')}</span>
-              )}
-              {(isRTL ? train.trainTypeNameAr : train.trainTypeNameEn) && (
-                <span className="badge badge-info" style={{ textTransform: 'none' }}>
-                  {isRTL ? train.trainTypeNameAr : train.trainTypeNameEn}
-                </span>
-              )}
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'var(--accent-gradient)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+              fontWeight: 800,
+              fontFamily: 'Outfit',
+              flexShrink: 0
+            }}>
+              {train.trainNumber}
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
-              {isRTL ? train.descriptionAr : train.descriptionEn}
-            </p>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {isRTL ? train.nameAr : train.nameEn}
+                </h1>
+                {todayTrip ? (
+                  <span className="badge badge-on-time">{t('activeLive')}</span>
+                ) : (
+                  <span className="badge badge-info">{t('scheduled')}</span>
+                )}
+                {(isRTL ? train.trainTypeNameAr : train.trainTypeNameEn) && (
+                  <span className="badge badge-info" style={{ textTransform: 'none' }}>
+                    {isRTL ? train.trainTypeNameAr : train.trainTypeNameEn}
+                  </span>
+                )}
+              </div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px' }}>
+                {isRTL ? train.descriptionAr : train.descriptionEn}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', padding: '32px' }}>
           {isAdmin && (
             <button 
               onClick={() => navigate(`/edit-train/${train.id}`)}

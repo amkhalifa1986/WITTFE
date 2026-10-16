@@ -3,22 +3,23 @@ import api from '../services/api';
 
 const AdContext = createContext(null);
 
-// localStorage key that stores a Set of all "page instances" where the ad was already shown.
-// Format: "pageKey" for single-instance pages, "pageKey:instanceId" for detail pages.
-const SEEN_ADS_KEY = 'witt_seen_ads';
+// sessionStorage key that stores timestamps when ads were shown.
+// Limit: shown just one time per page per 1 hour, stored in browser session.
+const AD_SESSION_KEY = 'witt_ad_session_timestamps';
+const ONE_HOUR_MS = 60 * 60 * 1000; // 1 hour in milliseconds
 
-const getSeenAds = () => {
+const getSeenAdTimestamps = () => {
   try {
-    const raw = localStorage.getItem(SEEN_ADS_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    const raw = sessionStorage.getItem(AD_SESSION_KEY);
+    return raw ? JSON.parse(raw) : {};
   } catch {
-    return new Set();
+    return {};
   }
 };
 
-const saveSeenAds = (set) => {
+const saveSeenAdTimestamps = (timestamps) => {
   try {
-    localStorage.setItem(SEEN_ADS_KEY, JSON.stringify([...set]));
+    sessionStorage.setItem(AD_SESSION_KEY, JSON.stringify(timestamps));
   } catch { /* storage full — ignore */ }
 };
 
@@ -66,6 +67,7 @@ export const AdProvider = ({ children }) => {
 
   /**
    * Returns true if the ad should be shown for this specific page instance.
+   * Ad is shown once per page per 1 hour in the browser session.
    * @param {string} pageKey   - admin-configured page identifier (e.g. 'tripDetails')
    * @param {string} instanceId - unique ID of the specific item (e.g. trip.id). Leave blank for single-instance pages.
    */
@@ -73,18 +75,22 @@ export const AdProvider = ({ children }) => {
     if (loading) return false;
     // Check admin config — is this page enabled?
     if (!adsConfig[pageKey]) return false;
-    // Check if this specific instance was already seen
-    const seen = getSeenAds();
-    return !seen.has(buildKey(pageKey, instanceId));
+    // Check 1-hour session limit
+    const key = buildKey(pageKey, instanceId);
+    const timestamps = getSeenAdTimestamps();
+    const lastShown = timestamps[key];
+    if (!lastShown) return true;
+    return Date.now() - lastShown >= ONE_HOUR_MS;
   };
 
   /**
-   * Marks the ad for this page instance as seen (persisted to localStorage).
+   * Marks the ad for this page instance as seen in sessionStorage with current timestamp.
    */
   const markAdShown = (pageKey, instanceId = null) => {
-    const seen = getSeenAds();
-    seen.add(buildKey(pageKey, instanceId));
-    saveSeenAds(seen);
+    const key = buildKey(pageKey, instanceId);
+    const timestamps = getSeenAdTimestamps();
+    timestamps[key] = Date.now();
+    saveSeenAdTimestamps(timestamps);
   };
 
   const trackImpression = async (pageKey, trainNumber = null) => {

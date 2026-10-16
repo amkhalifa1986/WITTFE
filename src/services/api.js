@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:5245';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080';
 
 class ApiClient {
   constructor() {
@@ -180,6 +180,20 @@ class ApiClient {
     return this.request('api/auth/me');
   }
 
+  async requestPasswordReset(email) {
+    return this.request('api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  }
+
+  async changePassword(oldPassword, newPassword) {
+    return this.request('api/profile/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+  }
+
   // Dashboard Stats & Disruptions
   async getDashboardStats() {
     return this.request('api/dashboard');
@@ -187,6 +201,27 @@ class ApiClient {
 
   async getDisruptions() {
     return this.request('api/dashboard/disruptions');
+  }
+
+  // Points System
+  async getPointActions() {
+    return this.request('api/points/actions');
+  }
+
+  async getTripLeaderboard(tripId) {
+    return this.request(`api/points/leaderboard/trip/${tripId}`);
+  }
+
+  async getMonthlyLeaderboard(year, month) {
+    return this.request(`api/points/leaderboard/monthly?year=${year || ''}&month=${month || ''}`);
+  }
+
+  async getYearlyLeaderboard(year) {
+    return this.request(`api/points/leaderboard/yearly?year=${year || ''}`);
+  }
+
+  async getMyPoints(year, month) {
+    return this.request(`api/points/my-points?year=${year || ''}&month=${month || ''}`);
   }
 
   // Trips
@@ -601,6 +636,30 @@ class ApiClient {
   async adminUpdateSystemSettings(data) {
     return this.request('api/admin/system-settings', { method: 'PUT', body: JSON.stringify(data) });
   }
+
+  // Admin Points System
+  async adminGetPointActions() {
+    return this.request('api/admin/points/actions');
+  }
+
+  async adminUpdatePointAction(actionId, points) {
+    return this.request(`api/admin/points/actions/${actionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ points })
+    });
+  }
+
+  async adminGetUserPoints(userId, year, month) {
+    return this.request(`api/admin/users/${userId}/points?year=${year || ''}&month=${month || ''}`);
+  }
+
+  async adminGetPointsLeaderboard(year, month) {
+    return this.request(`api/admin/points/leaderboard?year=${year || ''}&month=${month || ''}`);
+  }
+
+  async adminGetTripPoints(tripId) {
+    return this.request(`api/admin/trips/${tripId}/points`);
+  }
   async getSystemSettingsPublic() {
     return this.request('api/settings');
   }
@@ -671,6 +730,46 @@ class ApiClient {
       return url;
     }
     return `${BASE_URL}/${url.replace(/^\//, '')}`;
+  }
+
+  // Sudoku Game
+  async createSudokuSession(difficulty) {
+    return this.request('api/sudoku/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ difficulty })
+    });
+  }
+
+  async getActiveSudokuSession() {
+    return this.request('api/sudoku/sessions/active');
+  }
+
+  async updateSudokuProgress(sessionId, cellState, elapsedSeconds) {
+    return this.request(`api/sudoku/sessions/${sessionId}/progress`, {
+      method: 'PUT',
+      body: JSON.stringify({ cellState, elapsedSeconds })
+    });
+  }
+
+  async completeSudokuSession(sessionId, elapsedSeconds) {
+    return this.request(`api/sudoku/sessions/${sessionId}/complete`, {
+      method: 'PUT',
+      body: JSON.stringify({ elapsedSeconds })
+    });
+  }
+
+  async discardSudokuSession(sessionId) {
+    return this.request(`api/sudoku/sessions/${sessionId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async getSudokuLeaderboard(difficulty) {
+    return this.request(`api/sudoku/leaderboard?difficulty=${difficulty}`);
+  }
+
+  async getSudokuMyBest() {
+    return this.request('api/sudoku/my-best');
   }
 }
 
