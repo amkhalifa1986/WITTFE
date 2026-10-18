@@ -17,6 +17,10 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const handleForgotPassword = () => {
+    navigate('/reset-password');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -129,6 +133,21 @@ export const Login = () => {
               />
               {t('rememberMe')}
             </label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-primary)',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: 0
+              }}
+            >
+              {t('forgotPassword') || 'Forgot Password?'}
+            </button>
           </div>
 
           <button 

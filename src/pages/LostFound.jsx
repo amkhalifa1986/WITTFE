@@ -227,8 +227,14 @@ export const LostFound = () => {
                   <span className={`badge ${post.type === 'Lost' ? 'badge-cancelled' : 'badge-on-time'}`} style={{ fontSize: '0.6rem' }}>
                     {t(post.type === 'Lost' ? 'lostItems' : 'foundItems')}
                   </span>
-                  {post.status === 'Closed' && (
+                  {post.status === 'Closed' ? (
                     <span className="badge badge-info" style={{ fontSize: '0.6rem' }}>{t('resolved')}</span>
+                  ) : post.status === 'New' ? (
+                    <span className="badge badge-delayed" style={{ fontSize: '0.6rem' }}>Pending</span>
+                  ) : post.status === 'Rejected' ? (
+                    <span className="badge badge-cancelled" style={{ fontSize: '0.6rem' }}>Rejected</span>
+                  ) : (
+                    <span className="badge badge-on-time" style={{ fontSize: '0.6rem' }}>Open</span>
                   )}
                 </div>
 
@@ -237,15 +243,15 @@ export const LostFound = () => {
                   {post.description}
                 </p>
 
-                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {post.trainNumber && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Train size={12} /> {t('timetableHeader')} #{post.trainNumber}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Calendar size={12} /> {new Date(post.createdAt).toLocaleDateString()}
                   </div>
+                  {post.trainNumber && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Train size={12} /> #{post.trainNumber}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -258,9 +264,20 @@ export const LostFound = () => {
         <div style={{ position: 'fixed', top: 0, bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
           <div className="glass-panel" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
-              <span className={`badge ${selectedPost.type === 'Lost' ? 'badge-cancelled' : 'badge-on-time'}`}>
-                {t(selectedPost.type === 'Lost' ? 'lostItems' : 'foundItems')}
-              </span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <span className={`badge ${selectedPost.type === 'Lost' ? 'badge-cancelled' : 'badge-on-time'}`}>
+                  {t(selectedPost.type === 'Lost' ? 'lostItems' : 'foundItems')}
+                </span>
+                {selectedPost.status === 'Closed' ? (
+                  <span className="badge badge-info">{t('resolved')}</span>
+                ) : selectedPost.status === 'New' ? (
+                  <span className="badge badge-delayed">Pending</span>
+                ) : selectedPost.status === 'Rejected' ? (
+                  <span className="badge badge-cancelled">Rejected</span>
+                ) : (
+                  <span className="badge badge-on-time">Open</span>
+                )}
+              </div>
               <button onClick={() => setSelectedPost(null)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
                 <X size={20} />
               </button>

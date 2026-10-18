@@ -19,12 +19,19 @@ import {
   ExternalLink,
   Calendar,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trophy,
+  Star,
+  Medal,
+  X,
+  MoreHorizontal
 } from 'lucide-react';
+import { useAuth } from '../context/authContext';
 
 export const DashboardNew = () => {
   const navigate = useNavigate();
   const { t, isRTL } = useLanguage();
+  const { user } = useAuth();
   
   const [stats, setStats] = useState(null);
   const [followedTrips, setFollowedTrips] = useState([]);
@@ -35,6 +42,28 @@ export const DashboardNew = () => {
   const [error, setError] = useState('');
   // filter to show either all today trips or only those the user follows
   const [showFollowedOnly, setShowFollowedOnly] = useState(false);
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false);
+  const [monthlyParticipants, setMonthlyParticipants] = useState([]);
+  const [loadingMonthly, setLoadingMonthly] = useState(false);
+
+  const openMonthlyModal = async () => {
+    try {
+      setLoadingMonthly(true);
+      setShowMonthlyModal(true);
+      setMonthlyParticipants([]);
+      const now = new Date();
+      const res = await api.getMonthlyLeaderboard(now.getFullYear(), now.getMonth() + 1);
+      if (res.isSuccess && res.data) {
+        setMonthlyParticipants(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load monthly leaderboard:", err);
+    } finally {
+      setLoadingMonthly(false);
+    }
+  };
+  // date filter: 'today' | 'yesterday'
+  const [dateFilter, setDateFilter] = useState('today');
 
   const fetchDashboardData = async () => {
     try {
@@ -220,58 +249,193 @@ export const DashboardNew = () => {
         </div>
       </div>*/}
 
-      {/* Stats Cards Grid */}
+      {/* Stats Cards & Monthly Points Leaderboard Header */}
       {stats && (
-        <div className="stats-grid">
-          <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <Users size={24} color="#6366f1" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('statUsers')}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{stats.totalUsers ?? 0}</div>
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', width: '100%', alignItems: 'stretch', marginBottom: '24px' }}>
+          {/* Stats Cards (60%) */}
+          <div style={{ flex: '1 1 58%', minWidth: '350px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'nowrap', height: '100%' }}>
+              <div className="stat-card glass-panel" style={{
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                textAlign: isRTL ? 'right' : 'left',
+                gap: '8px',
+                flex: '1 1 0px',
+                minWidth: '0px'
+              }}>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                  {t('statUsers')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <Users size={16} color="#6366f1" />
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
+                    {stats.totalUsers ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card glass-panel" style={{
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                textAlign: isRTL ? 'right' : 'left',
+                gap: '8px',
+                flex: '1 1 0px',
+                minWidth: '0px'
+              }}>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                  {t('statTrains')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(72, 187, 120, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <Train size={16} color="#48bb78" />
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
+                    {stats.totalTrains ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card glass-panel" style={{
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                textAlign: isRTL ? 'right' : 'left',
+                gap: '8px',
+                flex: '1 1 0px',
+                minWidth: '0px'
+              }}>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                  {t('pendingTrips')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(237, 137, 54, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <Calendar size={16} color="#ed8936" />
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
+                    {stats.pendingTripsToday ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card glass-panel" style={{
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                textAlign: isRTL ? 'right' : 'left',
+                gap: '8px',
+                flex: '1 1 0px',
+                minWidth: '0px'
+              }}>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                  {t('runningTrips')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(56, 178, 172, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <Activity size={16} color="#38b2ac" />
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
+                    {stats.runningTripsToday ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="stat-card glass-panel" style={{
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                textAlign: isRTL ? 'right' : 'left',
+                gap: '8px',
+                flex: '1 1 0px',
+                minWidth: '0px'
+              }}>
+                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                  {t('statUpdates')}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ background: 'rgba(159, 122, 234, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <MessageSquare size={16} color="#9f7aea" />
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
+                    {stats.totalLiveUpdatesToday ?? 0}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(72, 187, 120, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <Train size={24} color="#48bb78" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('statTrains')}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{stats.totalTrains ?? 0}</div>
-            </div>
-          </div>
+          {/* Monthly Points Leaderboard (40%) */}
+          {stats.monthlyLeaderboard && stats.monthlyLeaderboard.length > 0 && (
+            <div className="glass-panel" style={{ flex: '1 1 38%', minWidth: '280px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', position: 'relative' }}>
+              {/* More button in the top right corner */}
+              <button
+                onClick={openMonthlyModal}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: isRTL ? 'auto' : '12px',
+                  left: isRTL ? '12px' : 'auto',
+                  background: 'rgba(120, 120, 120, 0.03)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  zIndex: 5,
+                  padding: 0
+                }}
+                title={isRTL ? 'عرض المزيد' : 'Show More'}
+                type="button"
+              >
+                <MoreHorizontal size={14} />
+              </button>
 
-          <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(237, 137, 54, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <Calendar size={24} color="#ed8936" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                <div style={{ background: 'rgba(251, 191, 36, 0.12)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Trophy size={18} color="#f59e0b" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: '1.2' }}>{t('monthlyLeaderboard') || 'Monthly Leaderboard'}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.2' }}>{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexGrow: 1, alignItems: 'center' }}>
+                {stats.monthlyLeaderboard.slice(0, 3).map((entry, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div key={entry.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(120,120,120,0.02)', borderRadius: '10px', padding: '8px 12px', border: '1px solid var(--border-color)', flex: '1 1 auto', justifyContent: 'center' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{medals[idx] || `#${entry.rank}`}</span>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: '0.85rem', flexShrink: 0 }}>
+                        {entry.displayName?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.2' }}>{entry.displayName}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 800, lineHeight: '1.2' }}>{entry.totalPoints} {t('points') || 'pts'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('pendingTripsToday') || t('statTrips')}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{stats.pendingTripsToday ?? 0}</div>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(56, 178, 172, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <Activity size={24} color="#38b2ac" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('runningTripsToday') || t('statTrips')}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{stats.runningTripsToday ?? 0}</div>
-            </div>
-          </div>
-
-          <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(159, 122, 234, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <MessageSquare size={24} color="#9f7aea" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('statUpdates')}</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>{stats.totalLiveUpdatesToday ?? 0}</div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -610,7 +774,7 @@ export const DashboardNew = () => {
 
         {/* Row 1 & 2, Column 2: Today's Active Trips Panel */}
         <div className="active-trips-container-cell glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '832px', overflow: 'hidden' }}>
-          <div className="panel-header" style={{ flexShrink: 0, padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="panel-header" style={{ flexShrink: 0, padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Activity size={20} color="var(--accent-secondary)" />
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('todayTrips')}</h3>
@@ -618,23 +782,46 @@ export const DashboardNew = () => {
                 {todayTrips.length} {t('active')}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button 
-                className="btn btn-sm" 
-                onClick={() => setShowFollowedOnly(false)} 
-                disabled={!showFollowedOnly}
-                style={{ padding: '4px 8px', fontSize: '0.75rem', margin: 0 }}
-              >
-                {t('All')}
-              </button>
-              <button 
-                className="btn btn-sm" 
-                onClick={() => setShowFollowedOnly(true)} 
-                disabled={showFollowedOnly}
-                style={{ padding: '4px 8px', fontSize: '0.75rem', margin: 0 }}
-              >
-                {t('Followed')}
-              </button>
+            {/* All filters in the same line */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {/* Follow Filter Group */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  className="btn btn-sm" 
+                  onClick={() => setShowFollowedOnly(false)} 
+                  disabled={!showFollowedOnly}
+                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}
+                >
+                  {t('All')}
+                </button>
+                <button 
+                  className="btn btn-sm" 
+                  onClick={() => setShowFollowedOnly(true)} 
+                  disabled={showFollowedOnly}
+                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}
+                >
+                  {t('Followed')}
+                </button>
+              </div>
+
+              {/* Vertical divider */}
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border-color)' }}></div>
+
+              {/* Date Filter Group */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['today', 'yesterday'].map(f => (
+                  <button
+                    key={f}
+                    className="btn btn-sm"
+                    onClick={() => setDateFilter(f)}
+                    disabled={dateFilter === f}
+                    style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0,
+                      ...(dateFilter === f ? { background: 'var(--accent-primary)', color: '#fff', borderColor: 'var(--accent-primary)' } : {}) }}
+                  >
+                    {f === 'today' ? t('today') : t('yesterday')}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div className="panel-body" style={{ flexGrow: 1, overflowY: 'auto', padding: '12px 0' }}>
@@ -646,9 +833,20 @@ export const DashboardNew = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {(() => {
-                  const tripsToShow = showFollowedOnly
-                    ? todayTrips.filter(t => followedTrips.some(f => f.id === t.id))
-                    : todayTrips;
+                  const getLocalDateString = (d) => {
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                  };
+                  const today = getLocalDateString(new Date());
+                  const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
+                  let tripsToShow = dateFilter === 'today'
+                    ? todayTrips.filter(tr => tr.tripDate === today)
+                    : dateFilter === 'yesterday'
+                      ? todayTrips.filter(tr => tr.tripDate === yesterday)
+                      : todayTrips;
+                  if (showFollowedOnly) tripsToShow = tripsToShow.filter(t => followedTrips.some(f => f.id === t.id));
                   return tripsToShow.map((trip) => {
                     const isFollowed = followedTrips.some(f => f.id === trip.id);
                     const badgeStyle = {
@@ -743,6 +941,164 @@ export const DashboardNew = () => {
       </div>
 
 
+      {/* Monthly Leaderboard Popup Modal */}
+      {showMonthlyModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          backdropFilter: 'blur(8px)',
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '450px',
+            padding: '24px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            position: 'relative',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)'
+          }}>
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowMonthlyModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: 'rgba(251, 191, 36, 0.12)', padding: '10px', borderRadius: '10px' }}>
+                <Trophy size={24} color="#f59e0b" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  {isRTL ? 'لوحة صدارة الشهر' : 'Monthly Leaderboard'}
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div style={{ overflowY: 'auto', flexGrow: 1, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '150px', justifyContent: loadingMonthly ? 'center' : 'flex-start' }}>
+              {loadingMonthly ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-secondary)' }}>
+                  <div className="spinner" style={{ borderTopColor: 'var(--accent-primary)', width: '32px', height: '32px', margin: '0 auto 12px auto' }}></div>
+                  <p style={{ fontSize: '0.85rem', margin: 0 }}>{isRTL ? 'جاري التحميل...' : 'Loading leaderboard...'}</p>
+                </div>
+              ) : monthlyParticipants.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)' }}>
+                  <Trophy size={32} style={{ marginBottom: '12px', opacity: 0.2 }} />
+                  <p style={{ fontSize: '0.85rem', margin: 0 }}>{isRTL ? 'لا توجد مشاركات هذا الشهر بعد' : 'No participants this month yet'}</p>
+                </div>
+              ) : (
+                <>
+                  {monthlyParticipants.map((entry, idx) => {
+                    const medals = ['🥇', '🥈', '🥉'];
+                    const isMe = user && user.id === entry.userId;
+                    return (
+                      <div 
+                        key={entry.userId} 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: isMe ? 'rgba(99, 102, 241, 0.15)' : 'rgba(120, 120, 120, 0.04)',
+                          borderRadius: '12px',
+                          padding: '12px 16px',
+                          border: isMe ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                          boxShadow: isMe ? '0 4px 12px rgba(99, 102, 241, 0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '1.4rem', fontWeight: 800, minWidth: '24px' }}>
+                            {medals[idx] || `#${idx + 1}`}
+                          </span>
+                          <div style={{
+                            width: 36, height: 36,
+                            borderRadius: '50%',
+                            background: isMe ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, color: '#fff', fontSize: '0.9rem',
+                            flexShrink: 0
+                          }}>
+                            {entry.displayName?.[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <div style={{
+                              fontWeight: 700,
+                              fontSize: '0.9rem',
+                              color: isMe ? 'var(--accent-primary)' : 'var(--text-primary)'
+                            }}>
+                              {entry.displayName} {isMe && `(${isRTL ? 'أنت' : 'You'})`}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {entry.rank === 1 ? (isRTL ? 'المركز الأول' : '1st Place') : 
+                               entry.rank === 2 ? (isRTL ? 'المركز الثاني' : '2nd Place') :
+                               entry.rank === 3 ? (isRTL ? 'المركز الثالث' : '3rd Place') :
+                               `${entry.rank}${isRTL ? '' : 'th'} ${isRTL ? 'المركز' : 'Place'}`}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '1rem', color: '#f59e0b', fontWeight: 800 }}>
+                          {entry.totalPoints} {t('points')}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Encouragement message if user is not in top list */}
+                  {user && !monthlyParticipants.some(p => p.userId === user.id) && (
+                    <div style={{
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px dashed rgba(245, 158, 11, 0.3)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      textAlign: 'center',
+                      marginTop: '12px'
+                    }}>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#d97706', fontWeight: 600, lineHeight: '1.5' }}>
+                        {isRTL 
+                          ? '😊 لم تسجل نقاطاً كافية لتظهر في الصدارة بعد! تفاعل بمشاركة تحديثات الرحلات لتكسب نقاطك وتظهر اسمك هنا!'
+                          : "😊 You haven't earned enough points to join the top leaderboard yet! Participate by sharing updates to claim your spot!"}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowMonthlyModal(false)}
+                style={{ padding: '8px 18px', fontSize: '0.9rem' }}
+              >
+                {isRTL ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

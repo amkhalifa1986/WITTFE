@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import { usePopup } from '../context/PopupContext';
@@ -24,6 +25,7 @@ import { DashboardMapAndFeed } from './DashboardMapAndFeed';
 export const Admin = () => {
   const { t, isRTL } = useLanguage();
   const { toast, alert, confirm } = usePopup();
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'users', 'suggestions', 'disruptions', 'import', 'settings'
   const [loading, setLoading] = useState(false);
@@ -42,6 +44,7 @@ export const Admin = () => {
   const [disruptionsList, setDisruptionsList] = useState([]);
   const [pendingUpdates, setPendingUpdates] = useState([]);
   const [removalRequests, setRemovalRequests] = useState([]);
+  const [pointActions, setPointActions] = useState([]);
 
   // Disruption Form State
   const [dispTitleEn, setDispTitleEn] = useState('');
@@ -105,8 +108,12 @@ export const Admin = () => {
         setPendingUpdates(pendingRes.data || []);
         setRemovalRequests(removalRes.data || []);
       } else if (activeTab === 'settings') {
-        const res = await api.adminGetSystemSettings();
+        const [res, pointsRes] = await Promise.all([
+          api.adminGetSystemSettings(),
+          api.adminGetPointActions()
+        ]);
         setSystemSettings(res.data || res);
+        setPointActions(pointsRes.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -363,6 +370,15 @@ export const Admin = () => {
     }
   };
 
+  const handleUpdatePoints = async (actionId, newPoints) => {
+    try {
+      await api.adminUpdatePointAction(actionId, newPoints);
+      toast('Points value updated successfully.', 'success');
+    } catch (err) {
+      toast('Failed to update points value: ' + err.message, 'error');
+    }
+  };
+
   const handleApproveUpdate = async (id) => {
     try {
       await api.adminApproveLiveUpdate(id);
@@ -511,12 +527,19 @@ export const Admin = () => {
                     <th style={{ padding: '16px 24px' }}>{t('tableEmail')}</th>
                     <th style={{ padding: '16px 24px' }}>{t('tableRole')}</th>
                     <th style={{ padding: '16px 24px' }}>{t('tableStatus')}</th>
+                    <th style={{ padding: '16px 24px' }}>{t('points')}</th>
                     <th style={{ padding: '16px 24px', textAlign: 'center' }}>{t('tableActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {usersList.map((usr) => (
-                    <tr key={usr.id} style={{ borderBottom: '1px solid rgba(120,120,120,0.02)', fontSize: '0.9rem' }}>
+                    <tr 
+                      key={usr.id} 
+                      onClick={() => navigate(`/admin/user/${usr.id}`)}
+                      style={{ borderBottom: '1px solid rgba(120,120,120,0.02)', fontSize: '0.9rem', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(120, 120, 120, 0.02)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
                       <td style={{ padding: '16px 24px', fontWeight: 600, color: 'var(--text-primary)' }}>{usr.displayName}</td>
                       <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{usr.email}</td>
                       <td style={{ padding: '16px 24px' }}>
@@ -529,9 +552,12 @@ export const Admin = () => {
                           <span className="badge badge-on-time" style={{ fontSize: '0.65rem' }}>{t('active')}</span>
                         )}
                       </td>
+                      <td style={{ padding: '16px 24px', fontWeight: 700, color: '#f59e0b' }}>
+                        {usr.totalPoints ?? 0} {t('points')}
+                      </td>
                       <td style={{ padding: '16px 24px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
                         <button 
-                          onClick={() => handleToggleSuspend(usr.id, usr.isSuspended)}
+                          onClick={(e) => { e.stopPropagation(); handleToggleSuspend(usr.id, usr.isSuspended); }}
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '0.75rem', borderColor: usr.isSuspended ? 'var(--success)' : 'var(--danger)', color: usr.isSuspended ? 'var(--success)' : 'var(--danger)' }}
                         >
@@ -539,7 +565,7 @@ export const Admin = () => {
                           <span>{usr.isSuspended ? t('unsuspend') : t('suspend')}</span>
                         </button>
                         <button 
-                          onClick={() => handleChangeRole(usr.id, usr.role)}
+                          onClick={(e) => { e.stopPropagation(); handleChangeRole(usr.id, usr.role); }}
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '0.75rem' }}
                         >
@@ -1076,6 +1102,56 @@ export const Admin = () => {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Point Action Values Configuration */}
+              <div className="glass-panel" style={{ padding: '28px' }}>
+                <h3 style={{ color: 'var(--text-primary)', fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  🏆 {t('pointActionValues') || 'Point Action Values'}
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                  {isRTL ? 'تعديل قيم النقاط المكتسبة من تفاعلات المستخدمين.' : 'Configure points earned from various user actions.'}
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {pointActions.map(action => (
+                    <div key={action.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(120, 120, 120, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                          {isRTL ? action.nameAr : action.nameEn}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Code: {action.code}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <input
+                          type="number"
+                          value={action.points}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setPointActions(prev => prev.map(a => a.id === action.id ? { ...a, points: val } : a));
+                          }}
+                          style={{
+                            width: '70px',
+                            padding: '8px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.2)',
+                            color: 'var(--text-primary)',
+                            fontWeight: 700,
+                            textAlign: 'center'
+                          }}
+                        />
+                        <button
+                          onClick={() => handleUpdatePoints(action.id, action.points)}
+                          className="btn btn-sm btn-primary"
+                          style={{ padding: '6px 12px', fontSize: '0.75rem', margin: 0 }}
+                        >
+                          {t('updatePointsBtn') || 'Update'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <button

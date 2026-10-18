@@ -83,6 +83,15 @@ export const Search = () => {
     }
   };
 
+  const handleResetFilters = () => {
+    setSearchType('number');
+    setTrainNumber('');
+    setFromStop('');
+    setToStop('');
+    setResults([]);
+    setError('');
+  };
+
   const getTodayTripForTrain = (trainNo) => {
     return todayTrips.find(t => t.trainNumber === trainNo);
   };
@@ -142,7 +151,7 @@ export const Search = () => {
                   className="input-field" 
                   placeholder="e.g. 980" 
                   value={trainNumber}
-                  onChange={(e) => setTrainNumber(e.target.value)}
+                  onChange={(e) => { setTrainNumber(e.target.value); setError(''); }}
                   style={{ paddingInlineStart: '48px' }}
                 />
               </div>
@@ -156,7 +165,7 @@ export const Search = () => {
                   <select 
                     className="input-field" 
                     value={fromStop}
-                    onChange={(e) => setFromStop(e.target.value)}
+                    onChange={(e) => { setFromStop(e.target.value); setError(''); }}
                     style={{ paddingInlineStart: '48px', cursor: 'pointer', appearance: 'auto' }}
                     disabled={stopsLoading}
                   >
@@ -177,7 +186,7 @@ export const Search = () => {
                   <select 
                     className="input-field" 
                     value={toStop}
-                    onChange={(e) => setToStop(e.target.value)}
+                    onChange={(e) => { setToStop(e.target.value); setError(''); }}
                     style={{ paddingInlineStart: '48px', cursor: 'pointer', appearance: 'auto' }}
                     disabled={stopsLoading}
                   >
@@ -199,10 +208,43 @@ export const Search = () => {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? t('loading') : t('searchBtn')}
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
+              {loading ? t('loading') : t('searchBtn')}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="btn btn-secondary"
+              style={{ padding: '10px 20px', cursor: 'pointer' }}
+            >
+              {isRTL ? 'إعادة ضبط' : 'Reset'}
+            </button>
+          </div>
         </form>
+
+        {/* Prompt state to indicate search attributes must be set to start searching, and on reset */}
+        {results.length === 0 && !error && !loading && (
+          <div style={{
+            marginTop: '32px',
+            padding: '28px 20px',
+            borderRadius: '16px',
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px dashed var(--border-color)',
+            textAlign: 'center',
+            color: 'var(--text-secondary)'
+          }}>
+            <Train size={36} color="var(--accent-primary)" style={{ marginBottom: '12px', opacity: 0.8 }} />
+            <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '1.05rem', fontWeight: 700 }}>
+              {isRTL ? 'يرجى تحديد معايير البحث لبدء البحث' : 'Please Set Search Attributes to Start'}
+            </h4>
+            <p style={{ fontSize: '0.9rem', maxWidth: '440px', margin: '0 auto', lineHeight: 1.5 }}>
+              {isRTL
+                ? 'حدد محطة المغادرة والوصول أو ابحث برقم القطار أعلاه ثم اضغط على زر البحث لعرض الرحلات المتاحة.'
+                : 'Select origin and destination stations or enter a train number above and click search to view available train routes.'}
+            </p>
+          </div>
+        )}
 
         {/* Results List */}
         {results.length > 0 && (

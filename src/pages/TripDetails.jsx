@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config';
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import signalrService from '../services/signalrService';
 import { useAuth } from '../context/authContext';
@@ -25,12 +25,42 @@ import {
   ThumbsUp,
   Trash2,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  Trophy,
+  Medal,
+  X,
+  MoreHorizontal
 } from 'lucide-react';
+
+const getEgyptTime = () => {
+  const options = { timeZone: 'Africa/Cairo', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  return new Date().toLocaleTimeString('en-US', options);
+};
+
+const getEgyptDateStr = () => {
+  const options = { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' };
+  const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(new Date());
+  const year = parts.find(p => p.type === 'year').value;
+  const month = parts.find(p => p.type === 'month').value;
+  const day = parts.find(p => p.type === 'day').value;
+  return `${year}-${month}-${day}`;
+};
+
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+};
 
 export const TripDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const promptStopId = searchParams.get('promptStopId');
+
   const { user } = useAuth();
   const { t, isRTL } = useLanguage();
   const { toast, alert, confirm } = usePopup();
@@ -41,6 +71,14 @@ export const TripDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Arrived Prompt Popup States
+  const [showArrivedPopup, setShowArrivedPopup] = useState(false);
+  const [promptContent, setPromptContent] = useState('');
+  const [promptStatusTag, setPromptStatusTag] = useState('');
+  const [promptCrowdState, setPromptCrowdState] = useState('');
+  const [promptShareLocation, setPromptShareLocation] = useState(false);
+  const [submittingPrompt, setSubmittingPrompt] = useState(false);
+
   // Update Form State
   const [content, setContent] = useState('');
   const [statusTag, setStatusTag] = useState('');
@@ -58,12 +96,396 @@ export const TripDetails = () => {
   const [mapReady, setMapReady] = useState(false);
   const [showStartPrompt, setShowStartPrompt] = useState(true);
   const [showEndPrompt, setShowEndPrompt] = useState(true);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [leaderboardParticipants, setLeaderboardParticipants] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  // Confirmed stop order: set when a passenger manually confirms a stop via the prompt.
+  // Prevents the sequence from flickering back to a stale value during re-fetch.
+  const [confirmedStopOrder, setConfirmedStopOrderState] = useState(() => {
+    const saved = sessionStorage.getItem(`confirmed_stop_order_${id}`);
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const setConfirmedStopOrder = (order) => {
+    setConfirmedStopOrderState(order);
+    sessionStorage.setItem(`confirmed_stop_order_${id}`, order.toString());
+  };
+  const timelineRef = useRef(null);
 
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const trainMarkerRef = useRef(null);
   const stopMarkersRef = useRef([]);
   const polylineRef = useRef(null);
+
+  const rightColumnRef = useRef(null);
+  const [rightColumnHeight, setRightColumnHeight] = useState(560);
+
+  useEffect(() => {
+    if (!rightColumnRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const height = entry.target.offsetHeight;
+        if (height > 0) {
+          setRightColumnHeight(height);
+        }
+      }
+    });
+
+    resizeObserver.observe(rightColumnRef.current);
+
+    const initialHeight = rightColumnRef.current.offsetHeight;
+    if (initialHeight > 0) {
+      setRightColumnHeight(initialHeight);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [trip]);
+
+  useEffect(() => {
+    if (!trip || !trip.isFollowedByCurrentUser) return;
+
+    // Cairo local timezone time calculations to compute departurePassed and arrivalPassed
+    let departurePassed = false;
+    let arrivalPassed = false;
+
+    if (trip.routeStops && trip.routeStops.length > 0) {
+      const sortedStops = [...trip.routeStops].sort((a, b) => a.stopOrder - b.stopOrder);
+      const firstStop = sortedStops[0];
+      const lastStop = sortedStops[sortedStops.length - 1];
+
+      if (firstStop.scheduledDeparture && lastStop.scheduledArrival) {
+        try {
+          const getEgyptDateTime = () => {
+            const options = {
+              timeZone: 'Africa/Cairo',
+              year: 'numeric', month: 'numeric', day: 'numeric',
+              hour: 'numeric', minute: 'numeric', second: 'numeric',
+              hour12: false
+            };
+            try {
+              const formatter = new Intl.DateTimeFormat('en-US', options);
+              const parts = formatter.formatToParts(new Date());
+              const getPart = (type) => parts.find(p => p.type === type).value;
+              let hour = parseInt(getPart('hour'));
+              if (hour === 24) hour = 0;
+              return new Date(
+                parseInt(getPart('year')),
+                parseInt(getPart('month')) - 1,
+                parseInt(getPart('day')),
+                hour,
+                parseInt(getPart('minute')),
+                parseInt(getPart('second'))
+              );
+            } catch (e) {
+              return new Date();
+            }
+          };
+
+          const nowEgypt = getEgyptDateTime();
+          const [tripYear, tripMonth, tripDay] = trip.tripDate.split('-').map(Number);
+          
+          let scheduledStart = null;
+          let scheduledEnd = null;
+          let currentDayOffset = 0;
+          let lastSeconds = -1;
+
+          const toSeconds = (timeStr) => {
+            if (!timeStr) return null;
+            const [h, m, s] = timeStr.split(':').map(Number);
+            return h * 3600 + m * 60 + (s || 0);
+          };
+
+          sortedStops.forEach((stop, index) => {
+            const arrSec = toSeconds(stop.scheduledArrival);
+            const depSec = toSeconds(stop.scheduledDeparture);
+
+            if (index === 0) {
+              if (depSec !== null) {
+                scheduledStart = new Date(tripYear, tripMonth - 1, tripDay, Math.floor(depSec / 3600), Math.floor((depSec % 3600) / 60), depSec % 60);
+                lastSeconds = depSec;
+              }
+            } else {
+              if (arrSec !== null) {
+                if (arrSec < lastSeconds) {
+                  currentDayOffset += 1;
+                }
+                lastSeconds = arrSec;
+                if (index === sortedStops.length - 1) {
+                  scheduledEnd = new Date(tripYear, tripMonth - 1, tripDay + currentDayOffset, Math.floor(arrSec / 3600), Math.floor((arrSec % 3600) / 60), arrSec % 60);
+                }
+              }
+              if (depSec !== null) {
+                if (depSec < lastSeconds) {
+                  currentDayOffset += 1;
+                }
+                lastSeconds = depSec;
+              }
+            }
+          });
+
+          if (scheduledStart) {
+            departurePassed = nowEgypt > scheduledStart;
+          }
+          if (scheduledEnd) {
+            arrivalPassed = nowEgypt > scheduledEnd;
+          }
+        } catch (err) {
+          console.error('Time comparison error:', err);
+        }
+      }
+    }
+
+    const showStartPromptBanner = departurePassed && showStartPrompt && 
+      (trip.status?.toLowerCase() === 'scheduled' || trip.status?.toLowerCase() === 'delayed');
+    
+    if (showStartPromptBanner) {
+      setShowArrivedPopup(false);
+      return;
+    }
+
+    const showEndPromptBanner = arrivalPassed && showEndPrompt && 
+      (trip.status?.toLowerCase() === 'intransit' || trip.status?.toLowerCase() === 'departed');
+
+    if (showEndPromptBanner) {
+      setShowArrivedPopup(false);
+      return;
+    }
+
+    const statusLower = trip.status?.toLowerCase();
+    if (statusLower !== 'intransit' && statusLower !== 'delayed' && statusLower !== 'departed' && statusLower !== 'active') {
+      setShowArrivedPopup(false);
+      return;
+    }
+
+    if (promptStopId) {
+      setShowArrivedPopup(true);
+      setPromptStatusTag('AtStation');
+    } else {
+      setShowArrivedPopup(false);
+      const isDismissed = sessionStorage.getItem(`prompt_dismissed_${trip.id}`) === 'true';
+      if (!isDismissed) {
+        // Scheduled progress check: compare last reported stop in the feed vs scheduled predicted stop
+        const getEgyptTime = () => {
+          const options = { timeZone: 'Africa/Cairo', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+          const timeString = new Date().toLocaleTimeString('en-US', options);
+          return timeString;
+        };
+
+        const getEgyptDateStr = () => {
+          const options = { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' };
+          const parts = new Intl.DateTimeFormat('en-US', options).formatToParts(new Date());
+          const year = parts.find(p => p.type === 'year').value;
+          const month = parts.find(p => p.type === 'month').value;
+          const day = parts.find(p => p.type === 'day').value;
+          return `${year}-${month}-${day}`;
+        };
+
+        const parseTimeToMinutes = (timeStr) => {
+          if (!timeStr) return 0;
+          const parts = timeStr.split(':');
+          const h = parseInt(parts[0], 10) || 0;
+          const m = parseInt(parts[1], 10) || 0;
+          return h * 60 + m;
+        };
+
+        const egyptTime = getEgyptTime();
+        const egyptDate = getEgyptDateStr();
+        const stops = [...(trip.routeStops || [])].sort((a, b) => a.stopOrder - b.stopOrder);
+        if (stops.length === 0) return;
+
+        const firstStop = stops[0];
+        const tripStartTime = parseTimeToMinutes(firstStop.scheduledDeparture || firstStop.scheduledArrival || "00:00:00");
+
+        let currentMinutes = parseTimeToMinutes(egyptTime);
+        const isNextDay = egyptDate !== trip.tripDate;
+        if (isNextDay) {
+          currentMinutes += 24 * 60;
+        }
+        
+        const elapsedMinutes = currentMinutes - tripStartTime;
+
+        // Find predicted stop: the latest stop whose offset is <= elapsedMinutes
+        let predictedStop = null;
+        for (let i = stops.length - 1; i >= 0; i--) {
+          const stop = stops[i];
+          const stopTime = parseTimeToMinutes(stop.scheduledArrival || stop.scheduledDeparture || "00:00:00");
+          let stopOffset = stopTime - tripStartTime;
+          if (stopTime < tripStartTime) {
+            stopOffset += 24 * 60;
+          }
+
+          if (elapsedMinutes >= stopOffset) {
+            predictedStop = stop;
+            break;
+          }
+        }
+
+        // Find the last reported stop from feed posts matching "[Stop Name]" or starting with "Stop [Stop Name]"
+        let lastMarkedStop = null;
+        if (trip.recentUpdates && trip.recentUpdates.length > 0) {
+          for (const update of trip.recentUpdates) {
+            const contentText = update.content || '';
+            let stopName = '';
+            const matchBrackets = contentText.match(/^\[([^\]]+)\]/);
+            if (matchBrackets) {
+              stopName = matchBrackets[1].trim();
+            } else {
+              const matchStop = contentText.match(/^Stop\s+(.+?)(?:\s+-|$)/i);
+              if (matchStop) {
+                stopName = matchStop[1].trim();
+              }
+            }
+
+            if (stopName) {
+              const foundStop = trip.routeStops?.find(
+                s => s.stopNameEn.toLowerCase() === stopName.toLowerCase() || 
+                     s.stopNameAr.toLowerCase() === stopName.toLowerCase()
+              );
+              if (foundStop) {
+                lastMarkedStop = foundStop;
+                break;
+              }
+            }
+          }
+        }
+
+        // Source 1: Live GPS Telemetry
+        let telemetryStopOrder = 0;
+        if (trip.status?.toLowerCase() !== 'arrived' && liveTelemetry) {
+          const upcomingStopsList = liveTelemetry.upcomingStops || liveTelemetry.UpcomingStops;
+          if (upcomingStopsList && upcomingStopsList.length > 0) {
+            const nextStop = upcomingStopsList[0];
+            const nextStopId = nextStop.stopId || nextStop.StopId;
+            if (nextStopId) {
+              const firstUpcoming = trip.routeStops?.find(rs => {
+                const rsId = rs.stopId || rs.id || rs.StopId;
+                return rsId?.toString().toLowerCase() === nextStopId.toString().toLowerCase();
+              });
+              if (firstUpcoming) {
+                const distRemaining = nextStop.distanceRemaining ?? nextStop.DistanceRemaining ?? 999999;
+                telemetryStopOrder = distRemaining < 800
+                  ? firstUpcoming.stopOrder
+                  : Math.max(1, firstUpcoming.stopOrder - 1);
+              }
+            }
+          }
+        }
+
+        // Compare predicted stop with last reported/confirmed/telemetry stop
+        if (predictedStop) {
+          const lastMarkedOrder = Math.max(
+            lastMarkedStop ? lastMarkedStop.stopOrder : 0,
+            confirmedStopOrder,
+            telemetryStopOrder
+          );
+          if (predictedStop.stopOrder > lastMarkedOrder) {
+            // Reports are lagging behind the schedule! Show prompt for predicted stop.
+            navigate(`?promptStopId=${predictedStop.stopId || predictedStop.id}`, { replace: true });
+          }
+        }
+      }
+    }
+  }, [trip, promptStopId, showStartPrompt, showEndPrompt, liveTelemetry, confirmedStopOrder]);
+
+  const handlePromptSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (submittingPrompt) return;
+
+    setSubmittingPrompt(true);
+    const promptStop = trip.routeStops?.find(s => 
+      (s.stopId && s.stopId.toString().toLowerCase() === promptStopId?.toString().toLowerCase()) || 
+      (s.id && s.id.toString().toLowerCase() === promptStopId?.toString().toLowerCase())
+    );
+    const stopName = promptStop ? (isRTL ? promptStop.stopNameAr : promptStop.stopNameEn) : 'Stop';
+
+    const comment = promptContent.trim();
+    const statusText = promptStatusTag ? ` - ${t(promptStatusTag)}` : '';
+    const contentVal = comment ? `[${stopName}] ${comment}` : `Stop ${stopName}${statusText}`;
+
+    const submitData = async (latitude = null, longitude = null) => {
+      try {
+        const res = await api.postTripLiveUpdate(
+          trip.id,
+          contentVal,
+          promptStatusTag || null,
+          promptCrowdState || null,
+          latitude,
+          longitude
+        );
+
+        if (res.isSuccess || res.statusCode === 201) {
+          toast(t('Update posted successfully!') || 'Update posted successfully!');
+          if (res.data) {
+            // Immediately update local state so the stops sequence reflects the confirmed stop
+            setTrip(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                recentUpdates: [res.data, ...(prev.recentUpdates || [])]
+              };
+            });
+            // Pin the confirmed stop order so re-fetch flicker doesn't reset it
+            const promptStop = trip.routeStops?.find(s =>
+              (s.stopId && s.stopId.toString().toLowerCase() === promptStopId?.toString().toLowerCase()) ||
+              (s.id && s.id.toString().toLowerCase() === promptStopId?.toString().toLowerCase())
+            );
+            if (promptStop) {
+              setConfirmedStopOrder(promptStop.stopOrder);
+              // Auto-scroll the stops sequence timeline to the confirmed stop
+              setTimeout(() => {
+                if (timelineRef.current) {
+                  const currentEl = timelineRef.current.querySelector('.timeline-item.current');
+                  if (currentEl) {
+                    currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }
+              }, 100);
+            }
+          }
+          setPromptContent('');
+          setPromptStatusTag('');
+          setPromptCrowdState('');
+          setPromptShareLocation(false);
+          setShowArrivedPopup(false);
+          sessionStorage.setItem(`prompt_dismissed_${trip.id}`, 'true');
+          navigate(location.pathname, { replace: true });
+          fetchTripDetails();
+        } else {
+          alert(res.message || 'Failed to post update.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert(t('Failed to post update.') || 'Failed to post update.');
+      } finally {
+        setSubmittingPrompt(false);
+      }
+    };
+
+    if (promptShareLocation) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            submitData(pos.coords.latitude, pos.coords.longitude);
+          },
+          (err) => {
+            console.error('Geolocation error:', err);
+            toast(t('Could not obtain your location. Posting without GPS.') || 'Could not obtain location. Posting without GPS.');
+            submitData();
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      } else {
+        toast(t('Geolocation not supported by browser. Posting without GPS.') || 'Geolocation not supported. Posting without GPS.');
+        submitData();
+      }
+    } else {
+      submitData();
+    }
+  };
 
   const handleRecenter = () => {
     setIsAutoCentering(true);
@@ -85,6 +507,23 @@ export const TripDetails = () => {
     }
   };
 
+  const openLeaderboardModal = async () => {
+    try {
+      setLoadingLeaderboard(true);
+      setShowLeaderboardModal(true);
+      setLeaderboardParticipants([]);
+      const res = await api.getTripLeaderboard(id);
+      if (res.isSuccess && res.data) {
+        setLeaderboardParticipants(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load trip leaderboard:", err);
+      toast(isRTL ? "فشل تحميل لوحة الصدارة" : "Failed to load leaderboard", "error");
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  };
+
 
 
   const fetchLookups = async () => {
@@ -101,6 +540,7 @@ export const TripDetails = () => {
   };
 
   useEffect(() => {
+    sessionStorage.removeItem(`prompt_dismissed_${id}`);
     fetchTripDetails();
     fetchLookups();
     setIsAutoCentering(true);
@@ -127,6 +567,7 @@ export const TripDetails = () => {
     initSignalR();
 
     const unsubscribe = signalrService.registerListener((update) => {
+      fetchTripDetails();
       setTrip((prevTrip) => {
         if (!prevTrip) return null;
         const updateId = update.id || update.Id;
@@ -409,7 +850,20 @@ export const TripDetails = () => {
     }
   };
 
+  const refreshTopContributorsAsync = async () => {
+    try {
+      const res = await api.getTripLeaderboard(id);
+      if (res.isSuccess && res.data) {
+        setTrip(prev => prev ? { ...prev, topContributors: res.data.slice(0, 3) } : null);
+        setLeaderboardParticipants(res.data);
+      }
+    } catch(err) {
+      console.error('Failed to refresh leaderboard:', err);
+    }
+  };
+
   const handleToggleThanks = async (updateId) => {
+    if (isInactive) return;
     try {
       const res = await api.toggleReportThanks(updateId);
       if (res.isSuccess && res.data) {
@@ -425,6 +879,7 @@ export const TripDetails = () => {
             )
           };
         });
+        refreshTopContributorsAsync();
       }
     } catch (err) {
       console.error('Failed to toggle thanks:', err);
@@ -441,10 +896,12 @@ export const TripDetails = () => {
           if (!prev) return null;
           return {
             ...prev,
-            recentUpdates: prev.recentUpdates.filter(u => u.id !== updateId)
+            recentUpdates: prev.recentUpdates.map(u => 
+              u.id === updateId ? { ...u, isRemovalRequested: true } : u
+            )
           };
         });
-        toast(t('Removal request submitted.'), 'success');
+        toast(t('removalRequestSubmitted'), 'success');
       }
     } catch (err) {
       toast(err.message || 'Failed to request removal', 'error');
@@ -482,7 +939,12 @@ export const TripDetails = () => {
         setStatusTag('');
         setCrowdState('');
         setShareLocation(false);
-        toast(isRTL ? 'تم نشر التحديث بنجاح' : 'Update posted successfully', 'success');
+        if (savedUpdate.isApproved) {
+          toast(isRTL ? 'تم نشر التحديث بنجاح' : 'Update posted successfully', 'success');
+        } else {
+          toast(isRTL ? 'تم إرسال منشورك إلى الإدارة للمراجعة قبل النشر' : 'Your post sent to the administration to review before publishing', 'success');
+        }
+        fetchTripDetails();
       } catch (err) {
         toast((isRTL ? 'فشل في إرسال التحديث: ' : 'Failed to submit update: ') + err.message, 'error');
       } finally {
@@ -586,34 +1048,108 @@ export const TripDetails = () => {
   }
 
   const totalStops = trip.routeStops?.length || 0;
-  let currentStopOrder = 0;
 
-  if (liveTelemetry && liveTelemetry.upcomingStops && liveTelemetry.upcomingStops.length > 0) {
-    const firstUpcoming = trip.routeStops?.find(rs => rs.stopId === liveTelemetry.upcomingStops[0].stopId);
-    if (firstUpcoming) {
-      currentStopOrder = firstUpcoming.stopOrder - 1;
+  // --- STOP ORDER COMPUTATION ---
+  // Each source independently computes a candidate stop order.
+  // The final value is the MAXIMUM of all sources (trains only move forward).
+  // This ensures passenger manual reports override stale telemetry, and
+  // vice-versa when GPS is ahead of the last passenger report.
+
+  let telemetryStopOrder = 0;
+  let recentUpdatesStopOrder = 0;
+  let timeBasedStopOrder = 0;
+
+  // Source 1: Live GPS Telemetry
+  if (trip.status?.toLowerCase() !== 'arrived' && liveTelemetry) {
+    const upcomingStopsList = liveTelemetry.upcomingStops || liveTelemetry.UpcomingStops;
+    if (upcomingStopsList && upcomingStopsList.length > 0) {
+      const nextStop = upcomingStopsList[0];
+      const nextStopId = nextStop.stopId || nextStop.StopId;
+      if (nextStopId) {
+        const firstUpcoming = trip.routeStops?.find(rs => {
+          const rsId = rs.stopId || rs.id || rs.StopId;
+          return rsId?.toString().toLowerCase() === nextStopId.toString().toLowerCase();
+        });
+        if (firstUpcoming) {
+          const distRemaining = nextStop.distanceRemaining ?? nextStop.DistanceRemaining ?? 999999;
+          telemetryStopOrder = distRemaining < 800
+            ? firstUpcoming.stopOrder          // arriving at this stop
+            : Math.max(1, firstUpcoming.stopOrder - 1); // between last and this stop
+        }
+      }
     }
   }
 
+  // Source 2: Passenger Reports from recentUpdates (highest reported stop)
+  if (trip.recentUpdates && trip.recentUpdates.length > 0) {
+    for (const update of trip.recentUpdates) {
+      const contentText = update.content || '';
+      let stopName = '';
+      const matchBrackets = contentText.match(/^\[([^\]]+)\]/);
+      if (matchBrackets) {
+        stopName = matchBrackets[1].trim();
+      } else {
+        const matchStop = contentText.match(/^Stop\s+(.+?)(?:\s+-|$)/i);
+        if (matchStop) {
+          stopName = matchStop[1].trim();
+        }
+      }
+      if (stopName) {
+        const matchedStop = trip.routeStops?.find(rs =>
+          rs.stopNameEn.toLowerCase() === stopName.toLowerCase() ||
+          rs.stopNameAr.toLowerCase() === stopName.toLowerCase()
+        );
+        if (matchedStop && matchedStop.stopOrder > recentUpdatesStopOrder) {
+          recentUpdatesStopOrder = matchedStop.stopOrder;
+        }
+      }
+    }
+  }
+
+  // Source 3: Time-based prediction (schedule fallback)
+  const statusLow = trip.status?.toLowerCase();
+  if (statusLow === 'arrived') {
+    timeBasedStopOrder = totalStops + 1;
+  } else if (statusLow === 'departed' || statusLow === 'intransit' || statusLow === 'active') {
+    const stops = [...(trip.routeStops || [])].sort((a, b) => a.stopOrder - b.stopOrder);
+    if (stops.length > 0) {
+      const firstStop = stops[0];
+      const tripStartTime = parseTimeToMinutes(firstStop.scheduledDeparture || firstStop.scheduledArrival || '00:00:00');
+      let currentMinutes = parseTimeToMinutes(getEgyptTime());
+      if (getEgyptDateStr() !== trip.tripDate) currentMinutes += 24 * 60;
+      const elapsedMinutes = currentMinutes - tripStartTime;
+      for (let i = stops.length - 1; i >= 0; i--) {
+        const stop = stops[i];
+        const stopTime = parseTimeToMinutes(stop.scheduledArrival || stop.scheduledDeparture || '00:00:00');
+        let stopOffset = stopTime - tripStartTime;
+        if (stopTime < tripStartTime) stopOffset += 24 * 60;
+        if (elapsedMinutes >= stopOffset) {
+          timeBasedStopOrder = stop.stopOrder;
+          break;
+        }
+      }
+      if (timeBasedStopOrder === 0) timeBasedStopOrder = 1;
+    }
+  } else if (totalStops > 0) {
+    timeBasedStopOrder = 1; // Scheduled / Pending: first stop
+  }
+
+  // Merge: take the maximum of all sources (train only moves forward),
+  // but also respect any manually confirmed stop from state (survives re-fetch flicker).
+  // Note: timeBasedStopOrder is excluded from currentStopOrder so that the timeline stops
+  // are not automatically marked as passed/completed without user/telemetry confirmation.
+  let currentStopOrder = Math.max(
+    telemetryStopOrder,
+    recentUpdatesStopOrder,
+    confirmedStopOrder
+  );
   if (currentStopOrder === 0) {
-    const lastAtStationUpdate = trip.recentUpdates?.find(u => u.statusTag === 'AtStation');
-    if (lastAtStationUpdate) {
-      const matchedStop = trip.routeStops?.find(rs => 
-        lastAtStationUpdate.content.toLowerCase().includes(rs.stopNameEn.toLowerCase()) || 
-        lastAtStationUpdate.content.includes(rs.stopNameAr)
-      );
-      if (matchedStop) currentStopOrder = matchedStop.stopOrder;
-    }
+    currentStopOrder = 1;
   }
 
-  if (currentStopOrder === 0 && totalStops > 0) {
-    if (trip.status === 'Arrived') {
-      currentStopOrder = totalStops;
-    } else if (trip.status === 'Departed' || trip.status === 'InTransit') {
-      currentStopOrder = Math.ceil(totalStops / 2);
-    } else {
-      currentStopOrder = 1;
-    }
+  // Terminal: if arrived, always show past-end
+  if (statusLow === 'arrived') {
+    currentStopOrder = totalStops + 1;
   }
 
   const isInactive = trip && (
@@ -692,8 +1228,9 @@ export const TripDetails = () => {
   let arrivalPassed = false;
 
   if (trip && trip.routeStops && trip.routeStops.length > 0) {
-    const firstStop = trip.routeStops[0];
-    const lastStop = trip.routeStops[trip.routeStops.length - 1];
+    const sortedStops = [...trip.routeStops].sort((a, b) => a.stopOrder - b.stopOrder);
+    const firstStop = sortedStops[0];
+    const lastStop = sortedStops[sortedStops.length - 1];
 
     if (firstStop.scheduledDeparture && lastStop.scheduledArrival) {
       const getEgyptTime = () => {
@@ -733,7 +1270,7 @@ export const TripDetails = () => {
           return h * 3600 + m * 60 + (s || 0);
         };
 
-        trip.routeStops.forEach((stop, index) => {
+        sortedStops.forEach((stop, index) => {
           const arrSec = toSeconds(stop.scheduledArrival);
           const depSec = toSeconds(stop.scheduledDeparture);
 
@@ -748,7 +1285,7 @@ export const TripDetails = () => {
                 currentDayOffset += 1;
               }
               lastSeconds = arrSec;
-              if (index === trip.routeStops.length - 1) {
+              if (index === sortedStops.length - 1) {
                 scheduledEnd = new Date(year, month - 1, day + currentDayOffset, Math.floor(arrSec / 3600), Math.floor((arrSec % 3600) / 60), arrSec % 60);
               }
             }
@@ -779,64 +1316,89 @@ export const TripDetails = () => {
   const showEndPromptBanner = trip && trip.isFollowedByCurrentUser && arrivalPassed && showEndPrompt && 
     (trip.status?.toLowerCase() === 'intransit' || trip.status?.toLowerCase() === 'departed');
 
+  const leftCardsHeight = rightColumnHeight > 560 ? rightColumnHeight : 560;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <AdInterstitial pageKey="tripDetails" instanceId={id} trainNumber={trip.trainNumber} />
       {/* Header Info Banner */}
-      <div className="glass-panel" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '16px',
-            background: 'var(--accent-gradient)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.5rem',
-            fontWeight: 800,
-            fontFamily: 'Outfit'
+      <div className="glass-panel" style={{ padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', borderRadius: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', gap: '0', alignSelf: 'stretch', flexWrap: 'wrap' }}>
+          {trip.imageUrl ? (
+            <img 
+              src={`${API_BASE_URL}${trip.imageUrl}`} 
+              alt="Train Type"
+              style={{
+                width: '222px',
+                height: '130px',
+                objectFit: 'cover',
+                borderRight: isRTL ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderLeft: isRTL ? '1px solid rgba(255, 255, 255, 0.08)' : 'none'
+              }}
+            />
+          ) : null}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '24px', 
+            padding: isRTL 
+              ? `32px 32px 32px ${trip.imageUrl ? '32px' : '32px'}` 
+              : `32px 32px 32px ${trip.imageUrl ? '32px' : '32px'}` 
           }}>
-            {trip.trainNumber}
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {isRTL ? trip.trainNameAr : trip.trainNameEn}
-              </h1>
-              <span 
-                className="badge" 
-                style={{
-                  backgroundColor: trip.statusDetails?.color ? `${trip.statusDetails.color}20` : 'var(--info-glow)',
-                  color: trip.statusDetails?.color || 'var(--info)',
-                  borderColor: trip.statusDetails?.color ? `${trip.statusDetails.color}40` : 'rgba(59, 130, 246, 0.3)',
-                  borderWidth: '1px',
-                  borderStyle: 'solid'
-                }}
-              >
-                {isRTL 
-                  ? (trip.statusDetails?.nameAr || trip.status) 
-                  : (trip.statusDetails?.nameEn || trip.status)}
-              </span>
-              {(isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn) && (
-                <span className="badge badge-info" style={{ textTransform: 'none' }}>
-                  {isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn}
-                </span>
-              )}
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'var(--accent-gradient)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+              fontWeight: 800,
+              fontFamily: 'Outfit',
+              flexShrink: 0
+            }}>
+              {trip.trainNumber}
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span>{t('trackDate')}: {trip.tripDate}</span>
-              <span>•</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Users size={14} /> {trip.followerCount} {t('statUsers')}
-              </span>
-            </p>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {isRTL ? trip.trainNameAr : trip.trainNameEn}
+                </h1>
+                <span 
+                  className="badge" 
+                  style={{
+                    backgroundColor: trip.statusDetails?.color ? `${trip.statusDetails.color}20` : 'var(--info-glow)',
+                    color: trip.statusDetails?.color || 'var(--info)',
+                    borderColor: trip.statusDetails?.color ? `${trip.statusDetails.color}40` : 'rgba(59, 130, 246, 0.3)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid'
+                  }}
+                >
+                  {isRTL 
+                    ? (trip.statusDetails?.nameAr || trip.status) 
+                    : (trip.statusDetails?.nameEn || trip.status)}
+                </span>
+                {(isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn) && (
+                  <span className="badge badge-info" style={{ textTransform: 'none' }}>
+                    {isRTL ? trip.trainTypeNameAr : trip.trainTypeNameEn}
+                  </span>
+                )}
+              </div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>{t('trackDate')}: {trip.tripDate}</span>
+                <span>•</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Users size={14} /> {trip.followerCount} {t('statUsers')}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
 
         {!isInactive && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '32px' }}>
             {trip.isFollowedByCurrentUser && (
               <button 
                 onClick={async () => {
@@ -1029,31 +1591,27 @@ export const TripDetails = () => {
         style={!gpsTrackingEnabled ? { gridTemplateColumns: '1fr 1fr' } : {}}
       >
         {/* Left Side: Map & Timeline side-by-side */}
-        <div className="glass-panel" style={{ padding: '32px' }}>
+        <div style={{ display: 'flex', gap: '24px', flexDirection: isRTL ? 'row-reverse' : 'row', flexWrap: 'wrap', alignItems: 'stretch', flex: '2 1 0px', minWidth: '0px' }}>
+          {/* Map Card */}
           {gpsTrackingEnabled && (
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Navigation size={20} color="var(--accent-primary)" /> {t('liveRouteTracking')}
-            </h3>
-          )}
-          
-          <div className="tracking-workspace" style={{ gridTemplateColumns: gpsTrackingEnabled ? '1fr 1fr' : '1fr' }}>
-            {/* Column 1: Map and Controls */}
-            {gpsTrackingEnabled && (
-              <div>
+            <div className="glass-panel" style={{ padding: '24px', flex: '1 1 45%', display: 'flex', flexDirection: 'column', height: `${leftCardsHeight}px`, minWidth: '320px' }}>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                <Navigation size={20} color="var(--accent-primary)" /> {t('liveRouteTracking')}
+              </h3>
+              
               {/* Map Container Wrapper */}
-              <div style={{ position: 'relative', marginBottom: '20px' }}>
-                <div ref={mapRef} className="map-container" style={{ height: '580px', marginBottom: 0 }}>
-                </div>
+              <div style={{ position: 'relative', flexGrow: 1, minHeight: '220px', marginBottom: '16px' }}>
+                <div ref={mapRef} className="map-container" style={{ height: '100%', marginBottom: 0 }}></div>
 
-                {/* Floating Re-center Button (Google Maps Style) - bottom left corner, always enabled */}
+                {/* Floating Re-center Button */}
                 {liveTelemetry && liveTelemetry.snappedLatitude > 0 && (
                   <button 
                     onClick={handleRecenter}
                     className="btn"
                     style={{
                       position: 'absolute',
-                      bottom: '16px',
-                      left: '16px',
+                      bottom: '12px',
+                      left: '12px',
                       zIndex: 1000,
                       display: 'flex',
                       alignItems: 'center',
@@ -1061,8 +1619,8 @@ export const TripDetails = () => {
                       gap: '8px',
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                       borderRadius: '8px',
-                      padding: '10px 14px',
-                      fontSize: '0.85rem',
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
                       fontWeight: 600,
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       backdropFilter: 'blur(12px)',
@@ -1073,7 +1631,7 @@ export const TripDetails = () => {
                       transition: 'all 0.3s ease'
                     }}
                   >
-                    <Navigation size={14} style={{ transform: 'rotate(45deg)', fill: 'currentColor' }} />
+                    <Navigation size={12} style={{ transform: 'rotate(45deg)', fill: 'currentColor' }} />
                     {t('recenter') || 'Re-center'}
                   </button>
                 )}
@@ -1088,31 +1646,32 @@ export const TripDetails = () => {
                   background: 'rgba(120,120,120,0.03)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '10px',
-                  padding: '12px 16px',
-                  marginBottom: '20px',
+                  padding: '10px 14px',
+                  marginBottom: '16px',
                   flexWrap: 'wrap',
-                  gap: '12px'
+                  gap: '8px',
+                  flexShrink: 0
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{
-                      width: '8px',
-                      height: '8px',
+                      width: '6px',
+                      height: '6px',
                       borderRadius: '50%',
                       background: 'var(--success)',
                       display: 'inline-block',
-                      boxShadow: '0 0 8px var(--success)',
+                      boxShadow: '0 0 6px var(--success)',
                       animation: 'pulseGlow 1.5s infinite'
                     }}></span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                       {t('liveGpsSnappingActive') || 'Live Snapped Tracking Active'}
                     </span>
                   </div>
                   
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {t('speedometer') || 'Speed'}: <strong style={{ color: 'var(--accent-secondary)' }}>{(liveTelemetry.speed || 0).toFixed(0)} km/h</strong>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                       {t('upcomingStopsCount') || 'Stops Remaining'}: <strong style={{ color: 'var(--text-primary)' }}>{liveTelemetry.upcomingStops?.length || 0}</strong>
                     </div>
                   </div>
@@ -1128,27 +1687,23 @@ export const TripDetails = () => {
                   background: 'rgba(99, 102, 241, 0.04)',
                   border: '1px dashed rgba(99, 102, 241, 0.25)',
                   borderRadius: '10px',
-                  padding: '12px 16px',
-                  marginBottom: '20px'
+                  padding: '10px 14px',
+                  flexShrink: 0
                 }}>
-                  <div>
-                    <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <div style={{ paddingEnd: '8px' }}>
+                    <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                       {t('passengerModeTitle') || 'Passenger Mode (Share GPS)'}
                     </h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px', margin: 0, lineHeight: 1.2 }}>
                       {t('passengerModeSub') || 'Broadcast your location to improve live ETA snapping for all users.'}
                     </p>
                   </div>
-                  <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '40px', height: '20px' }}>
+                  <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px', flexShrink: 0 }}>
                     <input 
                       type="checkbox" 
                       checked={passengerMode}
                       onChange={(e) => setPassengerMode(e.target.checked)}
-                      style={{
-                        opacity: 0,
-                        width: 0,
-                        height: 0
-                      }}
+                      style={{ opacity: 0, width: 0, height: 0 }}
                     />
                     <span style={{
                       position: 'absolute',
@@ -1156,13 +1711,13 @@ export const TripDetails = () => {
                       top: 0, left: 0, right: 0, bottom: 0,
                       backgroundColor: passengerMode ? 'var(--accent-primary)' : 'var(--border-color)',
                       transition: '0.4s',
-                      borderRadius: '20px'
+                      borderRadius: '18px'
                     }}>
                       <span style={{
                         position: 'absolute',
                         content: '""',
-                        height: '14px', width: '14px',
-                        left: passengerMode ? '22px' : '3px',
+                        height: '12px', width: '12px',
+                        left: passengerMode ? '21px' : '3px',
                         bottom: '3px',
                         backgroundColor: 'white',
                         transition: '0.4s',
@@ -1173,54 +1728,116 @@ export const TripDetails = () => {
                 </div>
               )}
             </div>
-            )}
+          )}
 
-            {/* Column 2: Stops Timeline Sequence (Scrollable) */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={18} color="var(--accent-secondary)" /> {t('stopsSequence') || 'Stops Sequence'}
-              </h4>
-              <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '8px', position: 'relative' }}>
-                <div className="trip-timeline" style={{ marginTop: 0 }}>
-                  {trip.routeStops?.map((stop, index) => {
-                    const isPassed = stop.stopOrder < currentStopOrder;
-                    const isCurrent = stop.stopOrder === currentStopOrder;
-                    
-                    return (
-                      <div key={`${stop.stopId}-${stop.stopOrder || index}`} className={`timeline-item ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}`}>
-                        <div className="timeline-node"></div>
-                        <div className="timeline-content">
-                          <div className="station-details">
-                            <div className="station-name">{isRTL ? stop.stopNameAr : stop.stopNameEn}</div>
-                            <div className="station-info">{isRTL ? stop.stopNameEn : stop.stopNameAr} ({stop.stopCode})</div>
-                          </div>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                            <span className="station-time">
-                              {stop.scheduledArrival && <span>{isRTL ? 'وصول' : 'Arr'}: {stop.scheduledArrival.slice(0, 5)}</span>}
-                              {stop.scheduledDeparture && <span style={{ marginInlineStart: '8px' }}>{isRTL ? 'تحرك' : 'Dep'}: {stop.scheduledDeparture.slice(0, 5)}</span>}
+          {/* Stops Timeline Sequence */}
+          <div className="glass-panel" style={{ padding: '24px', flex: '1 1 45%', display: 'flex', flexDirection: 'column', height: `${leftCardsHeight}px`, minWidth: '320px' }}>
+            <h4 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <MapPin size={18} color="var(--accent-secondary)" /> {t('stopsSequence') || 'Stops Sequence'}
+            </h4>
+            <div ref={timelineRef} style={{ flexGrow: 1, overflowY: 'auto', paddingRight: '8px', position: 'relative', minHeight: 0 }}>
+              <div className="trip-timeline" style={{ marginTop: 0 }}>
+                {trip.routeStops?.map((stop, index) => {
+                  const isPassed = stop.stopOrder < currentStopOrder;
+                  const isCurrent = stop.stopOrder === currentStopOrder;
+                  
+                  return (
+                    <div key={`${stop.stopId}-${stop.stopOrder || index}`} className={`timeline-item ${isPassed ? 'passed' : ''} ${isCurrent ? 'current' : ''}`}>
+                      <div className="timeline-node"></div>
+                      <div className="timeline-content">
+                        <div className="station-details">
+                          <div className="station-name">{isRTL ? stop.stopNameAr : stop.stopNameEn}</div>
+                          <div className="station-info">{isRTL ? stop.stopNameEn : stop.stopNameAr} ({stop.stopCode})</div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', paddingInlineEnd: '22px' }}>
+                          <span className="station-time">
+                            {stop.scheduledArrival && <span>{isRTL ? 'وصول' : 'Arr'}: {stop.scheduledArrival.slice(0, 5)}</span>}
+                            {stop.scheduledDeparture && <span style={{ marginInlineStart: '8px' }}>{isRTL ? 'تحرك' : 'Dep'}: {stop.scheduledDeparture.slice(0, 5)}</span>}
+                          </span>
+
+                          {isCurrent && (
+                            <span className="badge badge-on-time" style={{ fontSize: '0.6rem', marginTop: '4px', background: 'rgba(16, 185, 129, 0.2)' }}>
+                              {t('currentLastStation')}
                             </span>
-
-
-                            
-                            {isCurrent && (
-                              <span className="badge badge-on-time" style={{ fontSize: '0.6rem', marginTop: '4px', background: 'rgba(16, 185, 129, 0.2)' }}>
-                                {t('currentLastStation')}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Updates */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Right Side: Leadership & Updates */}
+        <div ref={rightColumnRef} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Trip Top Contributors leaderboard box */}
+          {trip.topContributors && trip.topContributors.length > 0 && (
+            <div className="glass-panel" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div 
+                onClick={openLeaderboardModal}
+                style={{ 
+                  background: 'rgba(251, 191, 36, 0.12)', 
+                  padding: '8px', 
+                  borderRadius: '8px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  border: '1px solid rgba(251, 191, 36, 0.25)'
+                }}
+                className="hover-scale"
+                title={isRTL ? 'عرض المزيد' : 'Show More'}
+              >
+                <Trophy size={18} color="#f59e0b" />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexGrow: 1, alignItems: 'center' }}>
+                {trip.topContributors.map((entry, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div key={entry.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(120,120,120,0.02)', borderRadius: '10px', padding: '8px 12px', border: '1px solid var(--border-color)', flex: '1 1 auto', justifyContent: 'center' }}>
+                      <span style={{ fontSize: '1.25rem' }}>{medals[idx] || `#${entry.rank}`}</span>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: '0.85rem', flexShrink: 0 }}>
+                        {entry.displayName?.[0]?.toUpperCase() || '?'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.2' }}>{entry.displayName}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 800, lineHeight: '1.2' }}>{entry.totalPoints} {t('points')}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Show More Icon Button */}
+                <button
+                  onClick={openLeaderboardModal}
+                  style={{
+                    background: 'rgba(120, 120, 120, 0.03)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    width: '36px',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    marginLeft: isRTL ? '0' : 'auto',
+                    marginRight: isRTL ? 'auto' : '0'
+                  }}
+                  title={isRTL ? 'عرض المزيد' : 'Show More'}
+                  type="button"
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+              </div>
+            </div>
+          )}
           {/* Submit Update */}
           {!isInactive && (
             <div className="glass-panel" style={{ padding: '24px' }}>
@@ -1390,6 +2007,8 @@ export const TripDetails = () => {
                               onClick={() => handleToggleThanks(update.id)}
                               className={`btn-3d-like ${update.isThankedByCurrentUser ? 'liked' : ''}`}
                               title={t('like')}
+                              disabled={isInactive}
+                              style={isInactive ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                             >
                               <ThumbsUp size={16} style={{ fill: update.isThankedByCurrentUser ? '#ffffff' : 'none' }} />
                             </button>
@@ -1432,6 +2051,377 @@ export const TripDetails = () => {
           </div>
         </div>
       </div>
+      {/* Interactive Arrived Verification Popup Modal */}
+      {showArrivedPopup && trip && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(12px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1100,
+          padding: '20px',
+          textAlign: isRTL ? 'right' : 'left'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '500px',
+            padding: '28px',
+            borderRadius: '20px',
+            background: 'linear-gradient(135deg, rgba(30, 30, 46, 0.93), rgba(18, 18, 28, 0.97))',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+            border: 'none',
+            direction: isRTL ? 'rtl' : 'ltr'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: '#6366f1',
+                padding: '10px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#ffffff', margin: 0, lineHeight: '1.4' }}>
+                {isRTL ? 'تحقق من تقدم الرحلة' : 'Check Trip Progress'}
+              </h3>
+            </div>
+
+            <p style={{ fontSize: '0.95rem', color: '#cbd5e1', margin: 0, lineHeight: '1.5' }}>
+              {t('isTripTrainArrivedHeader') || 'Is the trip of the train number'} <strong style={{ color: '#6366f1' }}>{trip.trainNumber}</strong> {t('arrivedToStopLabel') || 'arrived to stop'} <strong style={{ color: '#6366f1' }}>{
+                (() => {
+                  const promptStop = trip.routeStops?.find(s => 
+                    (s.stopId && s.stopId.toString().toLowerCase() === promptStopId?.toString().toLowerCase()) || 
+                    (s.id && s.id.toString().toLowerCase() === promptStopId?.toString().toLowerCase())
+                  );
+                  return promptStop ? (isRTL ? promptStop.stopNameAr : promptStop.stopNameEn) : '';
+                })()
+              }</strong>?
+            </p>
+
+            <form onSubmit={handlePromptSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {t('feedback') || 'Feedback / Comment'} <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 'normal' }}>({isRTL ? 'اختياري' : 'Optional'})</span>
+                </label>
+                <textarea
+                  placeholder={t('writeYourFeedback') || 'Enter your feedback here...'}
+                  value={promptContent}
+                  onChange={(e) => setPromptContent(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontSize: '0.85rem',
+                    minHeight: '80px',
+                    resize: 'none',
+                    outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#6366f1';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {t('tripStatus') || 'Trip Status'}
+                  </label>
+                  <select
+                    value={promptStatusTag}
+                    onChange={(e) => setPromptStatusTag(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '10px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      fontSize: '0.8rem',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="" style={{ background: '#1e1e2e' }}>-- {t('selectStatus') || 'Select Status'} --</option>
+                    {statusTagsList.map(tag => (
+                      <option key={tag.id} value={tag.code} style={{ background: '#1e1e2e' }}>{isRTL ? tag.nameAr : tag.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '600', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {t('trainCrowd') || 'Train Crowd'}
+                  </label>
+                  <select
+                    value={promptCrowdState}
+                    onChange={(e) => setPromptCrowdState(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '10px',
+                      background: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      fontSize: '0.8rem',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="" style={{ background: '#1e1e2e' }}>-- {t('selectCrowd') || 'Select Crowd'} --</option>
+                    {crowdLevelsList.map(lvl => (
+                      <option key={lvl.id} value={lvl.code} style={{ background: '#1e1e2e' }}>{isRTL ? lvl.nameAr : lvl.nameEn}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                <input
+                  type="checkbox"
+                  id="promptGps"
+                  checked={promptShareLocation}
+                  onChange={(e) => setPromptShareLocation(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#6366f1' }}
+                />
+                <label htmlFor="promptGps" style={{ fontSize: '0.8rem', color: '#cbd5e1', cursor: 'pointer', userSelect: 'none' }}>
+                  {t('attachGps') || 'Attach my GPS Location'}
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowArrivedPopup(false);
+                    sessionStorage.setItem(`prompt_dismissed_${trip.id}`, 'true');
+                    navigate(location.pathname, { replace: true });
+                  }}
+                  style={{
+                    padding: '10px 22px',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#f87171',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(239, 68, 68, 0.08)'}
+                  onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                >
+                  {isRTL ? 'لا' : 'No'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingPrompt}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+                    border: 'none',
+                    color: '#ffffff',
+                    opacity: submittingPrompt ? 0.6 : 1,
+                    transition: 'transform 0.1s, opacity 0.2s'
+                  }}
+                  onMouseDown={(e) => e.target.style.transform = 'scale(0.97)'}
+                  onMouseUp={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  {submittingPrompt ? (t('submitting') || 'Submitting...') : (isRTL ? 'نعم' : 'Yes')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Trip Leaderboard Full Popup Modal */}
+      {showLeaderboardModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          backdropFilter: 'blur(8px)',
+          padding: '20px'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '450px',
+            padding: '24px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            position: 'relative',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)'
+          }}>
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowLeaderboardModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                padding: '4px'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: 'rgba(251, 191, 36, 0.12)', padding: '10px', borderRadius: '10px' }}>
+                <Trophy size={24} color="#f59e0b" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  {isRTL ? 'لوحة صدارة الرحلة' : 'Trip Leaderboard'}
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  {isRTL ? 'جميع المشاركين ونقاطهم في هذه الرحلة' : 'All participants and their scores on this trip'}
+                </p>
+              </div>
+            </div>
+
+            {/* Scrollable list */}
+            <div style={{ overflowY: 'auto', flexGrow: 1, paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '150px', justifyContent: loadingLeaderboard ? 'center' : 'flex-start' }}>
+              {loadingLeaderboard ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-secondary)' }}>
+                  <div className="spinner" style={{ borderTopColor: 'var(--accent-primary)', width: '32px', height: '32px', margin: '0 auto 12px auto' }}></div>
+                  <p style={{ fontSize: '0.85rem', margin: 0 }}>{isRTL ? 'جاري التحميل...' : 'Loading leaderboard...'}</p>
+                </div>
+              ) : leaderboardParticipants.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)' }}>
+                  <Trophy size={32} style={{ marginBottom: '12px', opacity: 0.2 }} />
+                  <p style={{ fontSize: '0.85rem', margin: 0 }}>{isRTL ? 'لا توجد مشاركات في هذه الرحلة بعد' : 'No participants on this trip yet'}</p>
+                </div>
+              ) : (
+                <>
+                  {leaderboardParticipants.map((entry, idx) => {
+                    const medals = ['🥇', '🥈', '🥉'];
+                    const isMe = user && user.id === entry.userId;
+                    return (
+                      <div 
+                        key={entry.userId} 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: isMe ? 'rgba(99, 102, 241, 0.15)' : 'rgba(120, 120, 120, 0.04)',
+                          borderRadius: '12px',
+                          padding: '12px 16px',
+                          border: isMe ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                          boxShadow: isMe ? '0 4px 12px rgba(99, 102, 241, 0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '1.4rem', fontWeight: 800, minWidth: '24px' }}>
+                            {medals[idx] || `#${idx + 1}`}
+                          </span>
+                          <div style={{
+                            width: 36, height: 36,
+                            borderRadius: '50%',
+                            background: isMe ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, color: '#fff', fontSize: '0.9rem',
+                            flexShrink: 0
+                          }}>
+                            {entry.displayName?.[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <div style={{
+                              fontWeight: 700,
+                              fontSize: '0.9rem',
+                              color: isMe ? 'var(--accent-primary)' : 'var(--text-primary)'
+                            }}>
+                              {entry.displayName} {isMe && `(${isRTL ? 'أنت' : 'You'})`}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {entry.rank === 1 ? (isRTL ? 'المركز الأول' : '1st Place') : 
+                               entry.rank === 2 ? (isRTL ? 'المركز الثاني' : '2nd Place') :
+                               entry.rank === 3 ? (isRTL ? 'المركز الثالث' : '3rd Place') :
+                               `${entry.rank}${isRTL ? '' : 'th'} ${isRTL ? 'المركز' : 'Place'}`}
+                            </div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '1rem', color: '#f59e0b', fontWeight: 800 }}>
+                          {entry.totalPoints} {t('points')}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Friendly encouragement message if the logged in user is NOT in the list */}
+                  {user && !leaderboardParticipants.some(p => p.userId === user.id) && (
+                    <div style={{
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      border: '1px dashed rgba(245, 158, 11, 0.3)',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      textAlign: 'center',
+                      marginTop: '12px'
+                    }}>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#d97706', fontWeight: 600, lineHeight: '1.5' }}>
+                        {isRTL 
+                          ? '😊 لم تسجل أي نقاط في هذه الرحلة بعد! تفاعل بمشاركة موقعك أو إرسال تحديثات لتكسب نقاطك وتنافس في لوحة الصدارة!'
+                          : "😊 You haven't earned any points on this trip yet! Share your location or post a live update to join the fun and claim your spot on the leaderboard!"}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowLeaderboardModal(false)}
+                style={{ padding: '8px 18px', fontSize: '0.9rem' }}
+              >
+                {isRTL ? 'إغلاق' : 'Close'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
