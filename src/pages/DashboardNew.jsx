@@ -688,7 +688,7 @@ export const DashboardNew = () => {
                         width: idx === activeSlideIndex ? '24px' : '8px',
                         height: '8px',
                         borderRadius: '4px',
-                        background: idx === activeSlideIndex ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.4)',
+                        background: idx === activeSlideIndex ? 'var(--accent-highlight)' : 'rgba(255, 255, 255, 0.4)',
                         border: 'none',
                         cursor: 'pointer',
                         padding: 0,

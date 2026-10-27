@@ -322,7 +322,7 @@ export const LostFound = () => {
                 <button 
                   onClick={() => handleMarkResolved(selectedPost.id)}
                   className="btn btn-primary"
-                  style={{ background: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}
+                  style={{ background: 'var(--success)', color: 'var(--on-status)', display: 'flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}
                 >
                   <CheckCircle size={16} /> {t('markAsResolved')}
                 </button>

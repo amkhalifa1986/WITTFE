@@ -718,7 +718,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Easy')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--success)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--success)', color: 'var(--on-status)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
@@ -741,7 +741,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Medium')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--warning)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--warning)', color: 'var(--on-status)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
@@ -764,7 +764,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Hard')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--danger)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--danger)', color: 'var(--on-status)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
