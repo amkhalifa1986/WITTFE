@@ -1325,3 +1325,201 @@ html[lang="ar"] .stat-value {
     order: 1;
   }
 }
+
+/* ==========================================================================
+   Modern polish layer
+   Visual refinements only: no layout or content changes. Applies to both
+   the dark and light "Departure Board" themes.
+   ========================================================================== */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --focus-ring: #ffc93c;
+  --grid-dot: rgba(255, 255, 255, 0.05);
+  --panel-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --scrollbar-thumb: #2f333d;
+}
+
+html[data-theme="light"] {
+  --focus-ring: #16171c;
+  --grid-dot: rgba(22, 23, 28, 0.07);
+  --panel-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --scrollbar-thumb: #d4d0c5;
+}
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 3px solid var(--bg-primary);
+}
+
+::selection {
+  background: #ffc93c;
+  color: #0c0d10;
+}
+
+/* Quiet dot-grid backdrop that fades out down the page */
+body::before {
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  background-repeat: repeat;
+  opacity: 1;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 75%);
+}
+
+html[data-theme="light"] body::before {
+  opacity: 1;
+}
+
+/* Typography */
+h1, h2, h3 {
+  text-wrap: balance;
+  letter-spacing: -0.025em;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+.stat-value,
+.station-time,
+.badge,
+.feed-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Page entrance: opacity only, so fixed-position modals are never affected */
+@keyframes pageFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.main-content > * {
+  animation: pageFade 0.35s var(--ease-out);
+}
+
+/* Navigation */
+.top-navbar {
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+}
+
+.navbar-item a {
+  transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+
+@keyframes navUnderline {
+  from { transform: scaleX(0.2); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+.navbar-item.active a::after {
+  animation: navUnderline 0.35s var(--ease-out);
+}
+
+/* Panels and cards */
+.glass-panel {
+  box-shadow: var(--panel-highlight), var(--shadow-md);
+  transition: background-color 0.3s ease, border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+
+.stat-card {
+  transition: transform 0.25s var(--ease-out), border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent-highlight) 45%, var(--border-color));
+  box-shadow: var(--panel-highlight), var(--shadow-lg);
+}
+
+.feed-item {
+  transition: transform 0.25s var(--ease-out), background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.feed-item:hover {
+  border-color: color-mix(in srgb, var(--accent-highlight) 35%, var(--border-color));
+}
+
+/* Dropdowns pop from their anchor */
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.profile-dropdown,
+.notifications-dropdown {
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  transform-origin: top right;
+  animation: popIn 0.2s var(--ease-out);
+}
+
+html[dir="rtl"] .profile-dropdown,
+html[dir="rtl"] .notifications-dropdown {
+  transform-origin: top left;
+}
+
+/* Buttons: smooth hover, tactile press */
+.btn {
+  transition: transform 0.15s var(--ease-out), background 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.navbar-btn,
+.user-profile-trigger {
+  transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.15s var(--ease-out);
+}
+
+.navbar-btn:active,
+.user-profile-trigger:active {
+  transform: scale(0.96);
+}
+
+/* Inputs */
+.input-field {
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), background-color 0.3s ease;
+}
+
+.input-field:hover:not(:focus):not(:disabled) {
+  border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border-color));
+}
+
+/* Keyboard focus is always visible */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.input-field:focus-visible {
+  outline: none;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .main-content > *,
+  .navbar-item.active a::after,
+  .profile-dropdown,
+  .notifications-dropdown {
+    animation: none;
+  }
+  .stat-card:hover,
+  .btn:active:not(:disabled),
+  .navbar-btn:active,
+  .user-profile-trigger:active {
+    transform: none;
+  }
+}
