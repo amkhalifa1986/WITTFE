@@ -188,7 +188,7 @@ export const DashboardMapAndFeed = ({ statsData, api, isRTL }) => {
 
       if (validCoords.length > 0) {
         const polyline = L.polyline(validCoords, {
-          color: '#4f46e5',
+          color: 'var(--accent-primary)',
           weight: 4,
           opacity: 0.65,
           lineCap: 'round',
@@ -237,14 +237,14 @@ export const DashboardMapAndFeed = ({ statsData, api, isRTL }) => {
         const markerUrl = trip.markerPngUrl ? `${BASE_URL}${trip.markerPngUrl}` : '/train-marker.png';
         const trainIcon = L.divIcon({
           className: 'custom-train-marker-pin',
-          html: `<div class="train-pulse-pin" style="background: rgba(99, 102, 241, 0.45)"></div><img src="${markerUrl}" style="width: 44px; height: 44px; display: block; object-fit: contain;" alt="Train Pin" />`,
+          html: `<div class="train-pulse-pin" style="background: color-mix(in srgb, var(--accent-primary) 45%, transparent)"></div><img src="${markerUrl}" style="width: 44px; height: 44px; display: block; object-fit: contain;" alt="Train Pin" />`,
           iconSize: [44, 44],
           iconAnchor: [22, 44],
           popupAnchor: [0, -44]
         });
 
         const popupContent = `
-          <div style="font-family: Outfit, sans-serif; padding: 6px; min-width: 150px;">
+          <div style="font-family: 'Space Grotesk', sans-serif; padding: 6px; min-width: 150px;">
             <h4 style="margin: 0 0 4px 0; color: var(--text-primary); font-size: 0.95rem;">Train ${trip.trainNumber || ''}</h4>
             <p style="margin: 0 0 2px 0; color: var(--text-secondary); font-size: 0.8rem;"><b>Route:</b> ${isRTL ? (trip.trainNameAr || '') : (trip.trainNameEn || '')}</p>
             <p style="margin: 0 0 2px 0; color: var(--text-secondary); font-size: 0.8rem;"><b>Speed:</b> ${(tele.speed || 0).toFixed(1)} km/h</p>
@@ -347,7 +347,7 @@ export const DashboardMapAndFeed = ({ statsData, api, isRTL }) => {
               return (
                 <div key={upd.id} style={{ display: 'flex', gap: '12px', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'rgba(120, 120, 120, 0.01)' }}>
                   <div style={{ flexShrink: 0 }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white', overflow: 'hidden' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent-contrast)', overflow: 'hidden' }}>
                       {upd.authorAvatarUrl ? (
                         <img src={api.resolveImageUrl(upd.authorAvatarUrl)} alt={upd.authorName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (

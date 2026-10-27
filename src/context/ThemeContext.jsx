@@ -4,7 +4,7 @@ const ThemeContext = createContext(null);
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'dark'; // Default is dark theme
+    return localStorage.getItem('theme') || 'light'; // Default is the light "Departure Board: Day" theme
   });
 
   useEffect(() => {

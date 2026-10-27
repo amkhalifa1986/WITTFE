@@ -270,13 +270,13 @@ export const TrainDetails = () => {
               height: '60px',
               borderRadius: '16px',
               background: 'var(--accent-gradient)',
-              color: '#fff',
+              color: 'var(--accent-contrast)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '1.5rem',
               fontWeight: 800,
-              fontFamily: 'Outfit',
+              fontFamily: 'Space Grotesk',
               flexShrink: 0
             }}>
               {train.trainNumber}
@@ -536,8 +536,8 @@ export const TrainDetails = () => {
                         gap: '12px',
                         padding: '10px 12px',
                         borderRadius: '8px',
-                        background: isEnabled ? 'rgba(99, 102, 241, 0.05)' : 'rgba(120,120,120,0.02)',
-                        border: `1px solid ${isEnabled ? 'rgba(99, 102, 241, 0.2)' : 'var(--border-color)'}`,
+                        background: isEnabled ? 'color-mix(in srgb, var(--accent-primary) 5%, transparent)' : 'rgba(120,120,120,0.02)',
+                        border: `1px solid ${isEnabled ? 'color-mix(in srgb, var(--accent-primary) 20%, transparent)' : 'var(--border-color)'}`,
                         opacity: isEnabled ? 1 : 0.6,
                         transition: 'all 0.2s'
                       }}

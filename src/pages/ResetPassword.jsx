@@ -54,7 +54,7 @@ export const ResetPassword = () => {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      background: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.15) 0%, var(--bg-primary) 70%)',
+      background: 'radial-gradient(circle at top right, color-mix(in srgb, var(--accent-primary) 15%, transparent) 0%, var(--bg-primary) 70%)',
       padding: '20px'
     }}>
       <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '40px' }}>
@@ -67,7 +67,7 @@ export const ResetPassword = () => {
             height: '60px',
             borderRadius: '16px',
             marginBottom: '16px',
-            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.2)'
+            boxShadow: '0 8px 24px color-mix(in srgb, var(--accent-primary) 20%, transparent)'
           }}>
             <img src="/logo-light.png" alt="WITT logo" style={{ width: '100%', height: '100%', borderRadius: '16px', objectFit: 'cover' }} />
           </div>

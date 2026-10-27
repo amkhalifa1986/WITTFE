@@ -695,7 +695,7 @@ export const TripDetails = () => {
         const marker = L.marker([stop.latitude, stop.longitude], { icon: stopIcon })
           .addTo(map)
           .bindPopup(`
-            <div style="font-family: Outfit, sans-serif; padding: 4px;">
+            <div style="font-family: 'Space Grotesk', sans-serif; padding: 4px;">
               <h4 style="margin: 0; color: var(--text-primary); font-size: 0.95rem;">${isRTL ? stop.stopNameAr : stop.stopNameEn}</h4>
               <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">${isRTL ? stop.stopNameEn : stop.stopNameAr} (${stop.stopCode})</p>
             </div>
@@ -740,7 +740,7 @@ export const TripDetails = () => {
 
       trainMarkerRef.current.setLatLng(pos);
       trainMarkerRef.current.setPopupContent(`
-        <div style="font-family: Outfit, sans-serif; padding: 4px; text-align: center;">
+        <div style="font-family: 'Space Grotesk', sans-serif; padding: 4px; text-align: center;">
           <h4 style="margin: 0; color: var(--text-primary); font-size: 0.95rem;">Train ${trip.trainNumber}</h4>
           <p style="margin: 4px 0 0 0; color: var(--text-secondary); font-size: 0.8rem;">Speed: ${(liveTelemetry.speed || 0).toFixed(1)} km/h</p>
         </div>
@@ -1350,13 +1350,13 @@ export const TripDetails = () => {
               height: '60px',
               borderRadius: '16px',
               background: 'var(--accent-gradient)',
-              color: '#fff',
+              color: 'var(--accent-contrast)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '1.5rem',
               fontWeight: 800,
-              fontFamily: 'Outfit',
+              fontFamily: 'Space Grotesk',
               flexShrink: 0
             }}>
               {trip.trainNumber}
@@ -1448,8 +1448,8 @@ export const TripDetails = () => {
       {showStartPromptBanner && (
         <div className="glass-panel" style={{
           padding: '24px',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(244, 63, 94, 0.05) 100%)',
-          border: '1px solid rgba(99, 102, 241, 0.3)',
+          background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 15%, transparent) 0%, rgba(244, 63, 94, 0.05) 100%)',
+          border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)',
           borderRadius: '16px',
           display: 'flex',
           alignItems: 'center',
@@ -1457,24 +1457,24 @@ export const TripDetails = () => {
           flexWrap: 'wrap',
           gap: '20px',
           backdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 32px 0 rgba(99, 102, 241, 0.1)'
+          boxShadow: '0 8px 32px 0 color-mix(in srgb, var(--accent-primary) 10%, transparent)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
             <div style={{
               width: '48px',
               height: '48px',
               borderRadius: '12px',
-              background: 'rgba(99, 102, 241, 0.25)',
+              background: 'color-mix(in srgb, var(--accent-primary) 25%, transparent)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(99, 102, 241, 0.4)'
+              boxShadow: '0 0 12px color-mix(in srgb, var(--accent-primary) 40%, transparent)'
             }}>
               <Clock size={24} />
             </div>
             <div>
-              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Space Grotesk, sans-serif' }}>
                 {t('isTripStartedQuestion')}
               </h4>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
@@ -1490,7 +1490,7 @@ export const TripDetails = () => {
                 padding: '10px 24px',
                 fontSize: '0.85rem',
                 fontWeight: 700,
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                boxShadow: '0 4px 12px color-mix(in srgb, var(--accent-primary) 30%, transparent)',
                 cursor: 'pointer'
               }}
             >
@@ -1543,7 +1543,7 @@ export const TripDetails = () => {
               <MapPin size={24} />
             </div>
             <div>
-              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Space Grotesk, sans-serif' }}>
                 {t('isTripEndedQuestion')}
               </h4>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.4 }}>
@@ -1625,7 +1625,7 @@ export const TripDetails = () => {
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       backdropFilter: 'blur(12px)',
                       background: 'var(--accent-gradient)',
-                      color: '#ffffff',
+                      color: 'var(--accent-contrast)',
                       cursor: 'pointer',
                       opacity: 1,
                       transition: 'all 0.3s ease'
@@ -1684,8 +1684,8 @@ export const TripDetails = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: 'rgba(99, 102, 241, 0.04)',
-                  border: '1px dashed rgba(99, 102, 241, 0.25)',
+                  background: 'color-mix(in srgb, var(--accent-primary) 4%, transparent)',
+                  border: '1px dashed color-mix(in srgb, var(--accent-primary) 25%, transparent)',
                   borderRadius: '10px',
                   padding: '10px 14px',
                   flexShrink: 0
@@ -1801,7 +1801,7 @@ export const TripDetails = () => {
                   return (
                     <div key={entry.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(120,120,120,0.02)', borderRadius: '10px', padding: '8px 12px', border: '1px solid var(--border-color)', flex: '1 1 auto', justifyContent: 'center' }}>
                       <span style={{ fontSize: '1.25rem' }}>{medals[idx] || `#${entry.rank}`}</span>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: '0.85rem', flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--accent-contrast)', fontSize: '0.85rem', flexShrink: 0 }}>
                         {entry.displayName?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
@@ -1960,7 +1960,7 @@ export const TripDetails = () => {
                       {/* First Row: Avatar - Name - Time (Time moved to top right) */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div className="feed-avatar" style={{ background: 'var(--accent-primary)', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#ffffff', fontSize: '0.75rem' }}>
+                          <div className="feed-avatar" style={{ background: 'var(--accent-primary)', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent-contrast)', fontSize: '0.75rem' }}>
                             {update.authorName ? update.authorName[0].toUpperCase() : 'P'}
                           </div>
                           <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{update.authorName}</span>
@@ -2074,7 +2074,7 @@ export const TripDetails = () => {
             padding: '28px',
             borderRadius: '20px',
             background: 'linear-gradient(135deg, rgba(30, 30, 46, 0.93), rgba(18, 18, 28, 0.97))',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.25)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--accent-primary) 25%, transparent)',
             display: 'flex',
             flexDirection: 'column',
             gap: '18px',
@@ -2083,8 +2083,8 @@ export const TripDetails = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
-                background: 'rgba(99, 102, 241, 0.15)',
-                color: '#6366f1',
+                background: 'color-mix(in srgb, var(--accent-primary) 15%, transparent)',
+                color: 'var(--accent-primary)',
                 padding: '10px',
                 borderRadius: '50%',
                 display: 'flex',
@@ -2102,7 +2102,7 @@ export const TripDetails = () => {
             </div>
 
             <p style={{ fontSize: '0.95rem', color: '#cbd5e1', margin: 0, lineHeight: '1.5' }}>
-              {t('isTripTrainArrivedHeader') || 'Is the trip of the train number'} <strong style={{ color: '#6366f1' }}>{trip.trainNumber}</strong> {t('arrivedToStopLabel') || 'arrived to stop'} <strong style={{ color: '#6366f1' }}>{
+              {t('isTripTrainArrivedHeader') || 'Is the trip of the train number'} <strong style={{ color: 'var(--accent-primary)' }}>{trip.trainNumber}</strong> {t('arrivedToStopLabel') || 'arrived to stop'} <strong style={{ color: 'var(--accent-primary)' }}>{
                 (() => {
                   const promptStop = trip.routeStops?.find(s => 
                     (s.stopId && s.stopId.toString().toLowerCase() === promptStopId?.toString().toLowerCase()) || 
@@ -2136,8 +2136,8 @@ export const TripDetails = () => {
                     transition: 'border-color 0.2s, box-shadow 0.2s'
                   }}
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#6366f1';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
+                    e.target.style.borderColor = 'var(--accent-primary)';
+                    e.target.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-primary) 15%, transparent)';
                   }}
                   onBlur={(e) => {
                     e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
@@ -2206,7 +2206,7 @@ export const TripDetails = () => {
                   id="promptGps"
                   checked={promptShareLocation}
                   onChange={(e) => setPromptShareLocation(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#6366f1' }}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent-primary)' }}
                 />
                 <label htmlFor="promptGps" style={{ fontSize: '0.8rem', color: '#cbd5e1', cursor: 'pointer', userSelect: 'none' }}>
                   {t('attachGps') || 'Attach my GPS Location'}
@@ -2246,8 +2246,8 @@ export const TripDetails = () => {
                     fontSize: '0.85rem',
                     fontWeight: '600',
                     cursor: 'pointer',
-                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+                    background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary))',
+                    boxShadow: '0 4px 14px color-mix(in srgb, var(--accent-primary) 40%, transparent)',
                     border: 'none',
                     color: '#ffffff',
                     opacity: submittingPrompt ? 0.6 : 1,
@@ -2344,11 +2344,11 @@ export const TripDetails = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          background: isMe ? 'rgba(99, 102, 241, 0.15)' : 'rgba(120, 120, 120, 0.04)',
+                          background: isMe ? 'color-mix(in srgb, var(--accent-primary) 15%, transparent)' : 'rgba(120, 120, 120, 0.04)',
                           borderRadius: '12px',
                           padding: '12px 16px',
                           border: isMe ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                          boxShadow: isMe ? '0 4px 12px rgba(99, 102, 241, 0.2)' : 'none'
+                          boxShadow: isMe ? '0 4px 12px color-mix(in srgb, var(--accent-primary) 20%, transparent)' : 'none'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

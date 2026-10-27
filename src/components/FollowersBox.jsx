@@ -123,7 +123,7 @@ export const FollowersBox = ({ type, id }) => {
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
-                  color: '#fff', 
+                  color: 'var(--accent-contrast)', 
                   fontWeight: 'bold', 
                   fontSize: '0.8rem',
                   flexShrink: 0

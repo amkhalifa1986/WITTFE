@@ -968,7 +968,7 @@ export const Admin = () => {
                           <button onClick={() => handleDeleteUpdate(upd.id)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.75rem', borderColor: 'var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
                             {t('reject')}
                           </button>
-                          <button onClick={() => handleApproveUpdate(upd.id)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'var(--success)', borderColor: 'var(--success)' }}>
+                          <button onClick={() => handleApproveUpdate(upd.id)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'var(--success)', color: 'var(--on-status)', borderColor: 'var(--success)' }}>
                             {t('approve')}
                           </button>
                         </div>
@@ -1292,7 +1292,7 @@ export const Admin = () => {
                 onClick={() => handleReviewTrainSuggestion(1)}
                 className="btn btn-primary"
                 disabled={submittingReview}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', borderColor: 'var(--success)' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', color: 'var(--on-status)', borderColor: 'var(--success)' }}
               >
                 <Check size={16} /> {isRTL ? 'موافقة واعتماد' : 'Approve'}
               </button>
@@ -1403,8 +1403,8 @@ export const Admin = () => {
                 <div style={{
                   padding: '16px',
                   borderRadius: '10px',
-                  background: 'rgba(99, 102, 241, 0.05)',
-                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  background: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'
@@ -1514,7 +1514,7 @@ export const Admin = () => {
                 onClick={() => handleReviewStopSuggestion(1)}
                 className="btn btn-primary"
                 disabled={submittingReview}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', borderColor: 'var(--success)' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--success)', color: 'var(--on-status)', borderColor: 'var(--success)' }}
               >
                 <Check size={16} /> {isRTL ? 'موافقة واعتماد' : 'Approve'}
               </button>

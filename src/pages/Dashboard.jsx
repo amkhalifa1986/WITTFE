@@ -154,8 +154,8 @@ export const Dashboard = () => {
 
       {/* Design Experiment Invite Banner */}
       <div className="glass-panel" style={{
-        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)',
-        border: '1px solid rgba(99, 102, 241, 0.3)',
+        background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent-secondary) 15%, transparent) 0%, color-mix(in srgb, var(--accent-primary) 15%, transparent) 100%)',
+        border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)',
         padding: '16px 24px',
         borderRadius: '12px',
         display: 'flex',
@@ -201,12 +201,12 @@ export const Dashboard = () => {
       )}
 
       {/* About the System Banner 
-      <div className="glass-panel animate-fade" style={{ padding: '32px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.05) 100%)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="glass-panel animate-fade" style={{ padding: '32px', background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 15%, transparent) 0%, color-mix(in srgb, var(--accent-secondary) 5%, transparent) 100%)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{
           width: '56px',
           height: '56px',
           borderRadius: '14px',
-          background: 'rgba(99, 102, 241, 0.2)',
+          background: 'color-mix(in srgb, var(--accent-primary) 20%, transparent)',
           color: 'var(--accent-primary)',
           display: 'flex',
           alignItems: 'center',
@@ -227,8 +227,8 @@ export const Dashboard = () => {
       {stats && (
         <div className="stats-grid">
           <div className="stat-card glass-panel" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '12px', borderRadius: '10px' }}>
-              <Users size={24} color="#6366f1" />
+            <div style={{ background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', padding: '12px', borderRadius: '10px' }}>
+              <Users size={24} color="var(--accent-primary)" />
             </div>
             <div>
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{t('statUsers')}</div>
@@ -345,13 +345,13 @@ export const Dashboard = () => {
                               minWidth: '38px',
                               height: '38px',
                               borderRadius: '8px',
-                              background: 'rgba(6, 182, 212, 0.1)',
+                              background: 'color-mix(in srgb, var(--accent-secondary) 10%, transparent)',
                               color: 'var(--accent-secondary)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontWeight: 700,
-                              fontFamily: 'Outfit',
+                              fontFamily: 'Space Grotesk',
                               padding: '0 8px',
                               fontSize: '0.85rem',
                               whiteSpace: 'nowrap',

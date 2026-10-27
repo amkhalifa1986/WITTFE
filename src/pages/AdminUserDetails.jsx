@@ -141,7 +141,7 @@ export const AdminUserDetails = () => {
         {/* Left Column: User Profile info card */}
         <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px' }}>
-            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '2rem', color: '#fff' }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '2rem', color: 'var(--accent-contrast)' }}>
               {userInfo.displayName?.[0]?.toUpperCase() || '?'}
             </div>
             <div>

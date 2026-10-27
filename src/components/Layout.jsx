@@ -290,7 +290,7 @@ export const Layout = ({ children }) => {
                           style={{
                             padding: '10px 12px',
                             borderRadius: '8px',
-                            background: n.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.05)',
+                            background: n.isRead ? 'transparent' : 'color-mix(in srgb, var(--accent-primary) 5%, transparent)',
                             borderLeft: n.isRead ? 'none' : '3px solid var(--accent-primary)',
                             cursor: 'pointer',
                             transition: 'background 0.2s ease',
@@ -300,7 +300,7 @@ export const Layout = ({ children }) => {
                             textAlign: isRTL ? 'right' : 'left'
                           }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = n.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.05)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = n.isRead ? 'transparent' : 'color-mix(in srgb, var(--accent-primary) 5%, transparent)'; }}
                         >
                           <span style={{ fontSize: '0.8rem', color: n.isRead ? 'var(--text-secondary)' : 'var(--text-primary)', fontWeight: n.isRead ? 400 : 600 }}>
                             {n.message}
