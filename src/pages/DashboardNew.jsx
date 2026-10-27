@@ -227,12 +227,12 @@ export const DashboardNew = () => {
       )}
 
       {/* About the System Banner 
-      <div className="glass-panel animate-fade" style={{ padding: '32px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.05) 100%)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="glass-panel animate-fade" style={{ padding: '32px', background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 15%, transparent) 0%, color-mix(in srgb, var(--accent-secondary) 5%, transparent) 100%)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{
           width: '56px',
           height: '56px',
           borderRadius: '14px',
-          background: 'rgba(99, 102, 241, 0.2)',
+          background: 'color-mix(in srgb, var(--accent-primary) 20%, transparent)',
           color: 'var(--accent-primary)',
           display: 'flex',
           alignItems: 'center',
@@ -270,8 +270,8 @@ export const DashboardNew = () => {
                   {t('statUsers')}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
-                    <Users size={16} color="#6366f1" />
+                  <div style={{ background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', padding: '6px', borderRadius: '6px', flexShrink: 0 }}>
+                    <Users size={16} color="var(--accent-primary)" />
                   </div>
                   <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: '1' }}>
                     {stats.totalUsers ?? 0}
@@ -423,7 +423,7 @@ export const DashboardNew = () => {
                   return (
                     <div key={entry.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(120,120,120,0.02)', borderRadius: '10px', padding: '8px 12px', border: '1px solid var(--border-color)', flex: '1 1 auto', justifyContent: 'center' }}>
                       <span style={{ fontSize: '1.25rem' }}>{medals[idx] || `#${entry.rank}`}</span>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: '0.85rem', flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--accent-contrast)', fontSize: '0.85rem', flexShrink: 0 }}>
                         {entry.displayName?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
@@ -553,12 +553,12 @@ export const DashboardNew = () => {
                           alignItems: 'center',
                           gap: '6px',
                           background: 'var(--accent-gradient)',
-                          color: '#ffffff',
+                          color: 'var(--accent-contrast)',
                           padding: '8px 16px',
                           borderRadius: '8px',
                           fontSize: '0.85rem',
                           fontWeight: 600,
-                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.35)',
+                          boxShadow: '0 4px 12px color-mix(in srgb, var(--accent-primary) 35%, transparent)',
                           whiteSpace: 'nowrap',
                           flexShrink: 0
                         }}>
@@ -627,7 +627,7 @@ export const DashboardNew = () => {
                       transition: 'all 0.2s',
                       outline: 'none'
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.8)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent-primary) 80%, transparent)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'; }}
                   >
                     <ChevronLeft size={20} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
@@ -658,7 +658,7 @@ export const DashboardNew = () => {
                       transition: 'all 0.2s',
                       outline: 'none'
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99, 102, 241, 0.8)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent-primary) 80%, transparent)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'; }}
                   >
                     <ChevronRight size={20} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
@@ -729,7 +729,7 @@ export const DashboardNew = () => {
                   <div key={update.id} className="feed-item" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                     <div className="feed-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div className="feed-author" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="feed-avatar" style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        <div className="feed-avatar" style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.85rem' }}>
                           {update.authorName ? update.authorName[0].toUpperCase() : 'P'}
                         </div>
                         <div>
@@ -778,7 +778,7 @@ export const DashboardNew = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Activity size={20} color="var(--accent-secondary)" />
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('todayTrips')}</h3>
-              <span className="badge" style={{ fontSize: '0.65rem', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', border: 'none' }}>
+              <span className="badge" style={{ fontSize: '0.65rem', background: 'color-mix(in srgb, var(--accent-primary) 10%, transparent)', color: 'var(--accent-primary)', border: 'none' }}>
                 {todayTrips.length} {t('active')}
               </span>
             </div>
@@ -790,7 +790,8 @@ export const DashboardNew = () => {
                   className="btn btn-sm" 
                   onClick={() => setShowFollowedOnly(false)} 
                   disabled={!showFollowedOnly}
-                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}
+                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0,
+                    ...(!showFollowedOnly ? { background: 'var(--accent-primary)', color: 'var(--accent-contrast)', borderColor: 'var(--accent-primary)', opacity: 1 } : {}) }}
                 >
                   {t('All')}
                 </button>
@@ -798,7 +799,8 @@ export const DashboardNew = () => {
                   className="btn btn-sm" 
                   onClick={() => setShowFollowedOnly(true)} 
                   disabled={showFollowedOnly}
-                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0 }}
+                  style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0,
+                    ...(showFollowedOnly ? { background: 'var(--accent-primary)', color: 'var(--accent-contrast)', borderColor: 'var(--accent-primary)', opacity: 1 } : {}) }}
                 >
                   {t('Followed')}
                 </button>
@@ -816,7 +818,7 @@ export const DashboardNew = () => {
                     onClick={() => setDateFilter(f)}
                     disabled={dateFilter === f}
                     style={{ padding: '6px 12px', fontSize: '0.95rem', fontWeight: 800, margin: 0,
-                      ...(dateFilter === f ? { background: 'var(--accent-primary)', color: '#fff', borderColor: 'var(--accent-primary)' } : {}) }}
+                      ...(dateFilter === f ? { background: 'var(--accent-primary)', color: 'var(--accent-contrast)', borderColor: 'var(--accent-primary)', opacity: 1 } : {}) }}
                   >
                     {f === 'today' ? t('today') : t('yesterday')}
                   </button>
@@ -882,13 +884,13 @@ export const DashboardNew = () => {
                             minWidth: '38px',
                             height: '38px',
                             borderRadius: '8px',
-                            background: 'rgba(6, 182, 212, 0.1)',
+                            background: 'color-mix(in srgb, var(--accent-secondary) 10%, transparent)',
                             color: 'var(--accent-secondary)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 700,
-                            fontFamily: 'Outfit',
+                            fontFamily: 'Space Grotesk',
                             padding: '0 8px',
                             fontSize: '0.85rem',
                             whiteSpace: 'nowrap',
@@ -1021,11 +1023,11 @@ export const DashboardNew = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          background: isMe ? 'rgba(99, 102, 241, 0.15)' : 'rgba(120, 120, 120, 0.04)',
+                          background: isMe ? 'color-mix(in srgb, var(--accent-primary) 15%, transparent)' : 'rgba(120, 120, 120, 0.04)',
                           borderRadius: '12px',
                           padding: '12px 16px',
                           border: isMe ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                          boxShadow: isMe ? '0 4px 12px rgba(99, 102, 241, 0.2)' : 'none'
+                          boxShadow: isMe ? '0 4px 12px color-mix(in srgb, var(--accent-primary) 20%, transparent)' : 'none'
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

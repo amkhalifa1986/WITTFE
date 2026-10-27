@@ -1403,8 +1403,8 @@ export const Admin = () => {
                 <div style={{
                   padding: '16px',
                   borderRadius: '10px',
-                  background: 'rgba(99, 102, 241, 0.05)',
-                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                  background: 'color-mix(in srgb, var(--accent-primary) 5%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--accent-primary) 15%, transparent)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px'

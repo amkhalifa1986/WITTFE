@@ -340,7 +340,7 @@ export const LostFound = () => {
                   ) : (
                     postComments.map((comment) => (
                       <div key={comment.id} style={{ display: 'flex', gap: '12px', background: 'rgba(120,120,120,0.01)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: '#fff' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-contrast)' }}>
                           {comment.authorName ? comment.authorName[0].toUpperCase() : 'U'}
                         </div>
                         <div style={{ flexGrow: 1 }}>

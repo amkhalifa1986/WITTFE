@@ -382,7 +382,7 @@ export default function Sudoku() {
         .difficulty-card:hover:not(.disabled) {
           transform: translateY(-5px);
           border-color: var(--accent-primary);
-          box-shadow: 0 10px 20px rgba(99, 102, 241, 0.15);
+          box-shadow: 0 10px 20px color-mix(in srgb, var(--accent-primary) 15%, transparent);
         }
         .difficulty-card.disabled {
           opacity: 0.5;
@@ -423,14 +423,14 @@ export default function Sudoku() {
           color: var(--accent-secondary);
         }
         .sudoku-cell.selected {
-          background: rgba(99, 102, 241, 0.15) !important;
+          background: color-mix(in srgb, var(--accent-primary) 15%, transparent) !important;
           box-shadow: inset 0 0 0 2px var(--accent-primary);
         }
         .sudoku-cell.highlighted {
-          background: rgba(99, 102, 241, 0.05);
+          background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
         }
         .sudoku-cell.same-number {
-          background: rgba(6, 182, 212, 0.15);
+          background: color-mix(in srgb, var(--accent-secondary) 15%, transparent);
         }
         .sudoku-cell.conflict {
           color: var(--danger) !important;
@@ -464,7 +464,7 @@ export default function Sudoku() {
         }
         .num-pad-btn:active, .num-pad-btn:hover {
           background: var(--accent-primary);
-          color: #ffffff;
+          color: var(--accent-contrast);
           transform: scale(0.95);
         }
         .leaderboard-tabs button {
@@ -475,8 +475,8 @@ export default function Sudoku() {
         }
         .leaderboard-tabs button.active {
           background: var(--accent-gradient);
-          color: #ffffff;
-          box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+          color: var(--accent-contrast);
+          box-shadow: 0 4px 10px color-mix(in srgb, var(--accent-primary) 20%, transparent);
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
@@ -503,7 +503,7 @@ export default function Sudoku() {
         <div className="completion-overlay">
           <div className="glass-panel" style={{ padding: '40px', maxWidth: '450px', width: '90%', textAlign: 'center', borderRadius: '24px', border: '1px solid var(--accent-primary)' }}>
             <div style={{ background: 'var(--accent-gradient)', width: '72px', height: '72px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-              <CheckCircle2 size={40} color="#ffffff" />
+              <CheckCircle2 size={40} color="var(--accent-contrast)" />
             </div>
             
             <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)' }}>
@@ -529,7 +529,7 @@ export default function Sudoku() {
             <button 
               onClick={handleCloseCompletion}
               className="btn-3d" 
-              style={{ width: '100%', padding: '12px', background: 'var(--accent-gradient)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+              style={{ width: '100%', padding: '12px', background: 'var(--accent-gradient)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
             >
               {t('backToMenu')}
             </button>
@@ -650,7 +650,7 @@ export default function Sudoku() {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ background: 'var(--accent-gradient)', width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Gamepad2 size={24} color="#ffffff" />
+              <Gamepad2 size={24} color="var(--accent-contrast)" />
             </div>
             <div>
               <h1 style={{ fontSize: '1.75rem', fontWeight: '800', margin: 0 }}>{t('sudoku')}</h1>
@@ -678,7 +678,7 @@ export default function Sudoku() {
                 <button 
                   onClick={resumeActiveGame}
                   className="btn-3d" 
-                  style={{ padding: '8px 20px', background: 'var(--accent-gradient)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+                  style={{ padding: '8px 20px', background: 'var(--accent-gradient)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                   <Play size={16} />
                   <span>{t('continueGame')}</span>
@@ -718,7 +718,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Easy')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--success)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--success)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
@@ -741,7 +741,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Medium')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--warning)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--warning)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
@@ -764,7 +764,7 @@ export default function Sudoku() {
                   onClick={() => !activeSession && startNewGame('Hard')}
                   disabled={!!activeSession}
                   className="btn-3d"
-                  style={{ width: '100%', padding: '10px', background: 'var(--danger)', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '10px', background: 'var(--danger)', color: 'var(--accent-contrast)', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
                 >
                   {t('startGame')}
                 </button>
@@ -823,7 +823,7 @@ export default function Sudoku() {
                         #{entry.rank}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#ffffff', fontSize: '0.85rem' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--accent-contrast)', fontSize: '0.85rem' }}>
                           {entry.userName ? entry.userName[0].toUpperCase() : 'P'}
                         </div>
                         <span style={{ fontWeight: '600' }}>{entry.userName}</span>
