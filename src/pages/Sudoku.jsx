@@ -3,7 +3,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { usePopup } from '../context/PopupContext';
 import { AdInterstitial } from '../components/AdInterstitial';
 import api from '../services/api';
-import { getSudokuPuzzle } from '../data/sudokuPuzzles';
+import { getSudokuPuzzle, isSolvedBoard } from '../data/sudokuPuzzles';
 import { 
   Gamepad2, Play, Pause, Trash2, Trophy, Clock, 
   RotateCcw, CheckCircle2, ChevronRight, Award, HelpCircle, Delete
@@ -274,8 +274,7 @@ export default function Sudoku() {
   };
 
   const checkCompletion = async (grid) => {
-    const gridStr = grid.join('');
-    if (gridStr === puzzleData?.solution) {
+    if (isSolvedBoard(grid, puzzleData?.puzzle)) {
       // Solved successfully!
       setTimerRunning(false);
       setSubmitting(true);
