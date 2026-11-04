@@ -1,5 +1,15 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080';
 
+// Retry only failures a second attempt can fix: the connection dropped, or the server
+// is briefly unavailable. Error responses (400/401/403/404/500) and timeouts are not
+// retried: repeating them only adds seconds of waiting and repeats heavy server work.
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const isRetryable = (err) => {
+  if (err?.name === 'AbortError') return false;
+  if (err?.status !== undefined) return RETRYABLE_STATUSES.has(err.status);
+  return true;
+};
+
 class ApiClient {
   constructor() {
     this.accessToken = localStorage.getItem('access_token') || null;
@@ -34,7 +44,7 @@ class ApiClient {
       try {
         return await this._doRequest(endpoint, options);
       } catch (err) {
-        if (i === retries - 1 || method !== 'GET') throw err;
+        if (i === retries - 1 || method !== 'GET' || !isRetryable(err)) throw err;
         // Exponential backoff
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
       }
@@ -113,7 +123,9 @@ class ApiClient {
       if (!endpoint.includes('system-logs')) {
         this.logError('Frontend', url, `API request failed: ${errorMsg}`, errorMsg).catch(() => {});
       }
-      throw new Error(errorMsg);
+      const error = new Error(errorMsg);
+      error.status = response.status;
+      throw error;
     }
 
     return data;
